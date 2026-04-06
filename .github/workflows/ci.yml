@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: packer
+          POSTGRES_PASSWORD: packer_secret
+          POSTGRES_DB: destinationpacker_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://packer:packer_secret@localhost:5432/destinationpacker_test
+          REDIS_URL: redis://localhost:6379
+          SECRET_KEY: test_secret_key
+          ENVIRONMENT: test
+          ANTHROPIC_API_KEY: test_key
+          OPENWEATHER_API_KEY: test_key
+          GOOGLE_PLACES_API_KEY: test_key
+        run: |
+          cd backend
+          pytest -v --cov=app --cov-report=term-missing
+
+  mobile:
+    name: Mobile Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd mobile
+          npm ci
+
+      - name: Type check
+        run: |
+          cd mobile
+          npx tsc --noEmit
+
+      - name: Run tests
+        run: |
+          cd mobile
+          npm test -- --passWithNoTests
