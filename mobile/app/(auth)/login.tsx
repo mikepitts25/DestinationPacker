@@ -1,71 +1,128 @@
-import { View, StyleSheet, Image } from 'react-native';
-import { Text, Button, Surface } from 'react-native-paper';
+import { useState } from 'react';
+import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text, Button, TextInput, HelperText } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { usersApi, setAuthToken } from '@/services/api';
+import { useAuthStore } from '@/stores/authStore';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 
-export default function LoginScreen() {
-  const handleGoogleSignIn = async () => {
-    // TODO: Implement Firebase Google sign-in
-    // const provider = new GoogleAuthProvider();
-    // const result = await signInWithPopup(auth, provider);
-    // const token = await result.user.getIdToken();
-    // Register user with backend, then navigate
-    router.replace('/(tabs)');
-  };
+type Mode = 'login' | 'register';
 
-  const handleAppleSignIn = async () => {
-    // TODO: Implement Firebase Apple sign-in
-    router.replace('/(tabs)');
+export default function LoginScreen() {
+  const [mode, setMode] = useState<Mode>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { setUser, setFirebaseToken } = useAuthStore();
+
+  const handleSubmit = async () => {
+    setError('');
+    if (!email || !password) {
+      setError('Email and password are required.');
+      return;
+    }
+    if (mode === 'register' && password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result =
+        mode === 'login'
+          ? await usersApi.login({ email, password })
+          : await usersApi.register({ email, password, display_name: displayName || undefined });
+
+      setAuthToken(result.access_token);
+      setFirebaseToken(result.access_token);
+      setUser(result.user);
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.hero}>
-        <Text style={styles.emoji}>🧳</Text>
-        <Text style={styles.title}>DestinationPacker</Text>
-        <Text style={styles.subtitle}>
-          Smart packing lists for every adventure
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.inner}
+      >
+        <View style={styles.hero}>
+          <Text style={styles.emoji}>🧳</Text>
+          <Text style={styles.title}>DestinationPacker</Text>
+          <Text style={styles.subtitle}>
+            Smart packing lists for every adventure
+          </Text>
+        </View>
+
+        <View style={styles.form}>
+          {mode === 'register' && (
+            <TextInput
+              label="Display name (optional)"
+              value={displayName}
+              onChangeText={setDisplayName}
+              style={styles.input}
+              autoCapitalize="words"
+            />
+          )}
+
+          <TextInput
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            style={styles.input}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+          />
+
+          <TextInput
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            style={styles.input}
+            secureTextEntry
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+          />
+
+          <HelperText type="error" visible={!!error}>
+            {error}
+          </HelperText>
+
+          <Button
+            mode="contained"
+            onPress={handleSubmit}
+            loading={loading}
+            disabled={loading}
+            style={styles.button}
+            contentStyle={styles.buttonContent}
+          >
+            {mode === 'login' ? 'Sign In' : 'Create Account'}
+          </Button>
+
+          <Button
+            mode="text"
+            onPress={() => {
+              setMode(mode === 'login' ? 'register' : 'login');
+              setError('');
+            }}
+          >
+            {mode === 'login'
+              ? "Don't have an account? Sign up"
+              : 'Already have an account? Sign in'}
+          </Button>
+        </View>
+
+        <Text style={styles.terms}>
+          By signing in, you agree to our Terms of Service and Privacy Policy.
         </Text>
-      </View>
-
-      <View style={styles.features}>
-        {[
-          { icon: '🌦️', text: 'Weather-aware packing lists' },
-          { icon: '🗺️', text: 'Activity-based recommendations' },
-          { icon: '✅', text: 'Never forget anything again' },
-        ].map(({ icon, text }) => (
-          <View key={text} style={styles.featureRow}>
-            <Text style={styles.featureIcon}>{icon}</Text>
-            <Text style={styles.featureText}>{text}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.buttons}>
-        <Button
-          mode="contained"
-          onPress={handleGoogleSignIn}
-          style={styles.button}
-          contentStyle={styles.buttonContent}
-          icon="google"
-        >
-          Continue with Google
-        </Button>
-        <Button
-          mode="outlined"
-          onPress={handleAppleSignIn}
-          style={[styles.button, styles.appleButton]}
-          contentStyle={styles.buttonContent}
-          icon="apple"
-        >
-          Continue with Apple
-        </Button>
-      </View>
-
-      <Text style={styles.terms}>
-        By signing in, you agree to our Terms of Service and Privacy Policy.
-      </Text>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -74,12 +131,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  inner: {
+    flex: 1,
     paddingHorizontal: Spacing.lg,
     justifyContent: 'center',
   },
   hero: {
     alignItems: 'center',
-    marginBottom: Spacing.xxl,
+    marginBottom: Spacing.xl,
   },
   emoji: {
     fontSize: 72,
@@ -95,31 +155,16 @@ const styles = StyleSheet.create({
     color: Colors.muted,
     textAlign: 'center',
   },
-  features: {
-    marginBottom: Spacing.xxl,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  featureIcon: {
-    fontSize: 24,
-    marginRight: Spacing.md,
-  },
-  featureText: {
-    ...Typography.body,
-    color: Colors.onSurface,
-  },
-  buttons: {
+  form: {
     marginBottom: Spacing.lg,
   },
-  button: {
+  input: {
     marginBottom: Spacing.sm,
-    borderRadius: 12,
+    backgroundColor: Colors.surface,
   },
-  appleButton: {
-    borderColor: Colors.border,
+  button: {
+    marginTop: Spacing.sm,
+    borderRadius: 12,
   },
   buttonContent: {
     paddingVertical: Spacing.sm,

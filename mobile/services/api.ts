@@ -57,11 +57,22 @@ export class ApiError extends Error {
   }
 }
 
+// ─── Auth types ──────────────────────────────────────────────────────────────
+
+interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
 // ─── Users ───────────────────────────────────────────────────────────────────
 
 export const usersApi = {
-  register: (data: { firebase_uid: string; email: string; display_name?: string }) =>
-    request<User>('POST', '/users/register', data),
+  register: (data: { email: string; password: string; display_name?: string }) =>
+    request<TokenResponse>('POST', '/users/register', data),
+
+  login: (data: { email: string; password: string }) =>
+    request<TokenResponse>('POST', '/users/login', data),
 
   me: () => request<User>('GET', '/users/me'),
 

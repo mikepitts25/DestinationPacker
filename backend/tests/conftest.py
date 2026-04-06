@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from app.main import app
 from app.db.database import Base, get_db
 from app.models.user import User, SubscriptionTier
+from app.middleware.auth import hash_password
 
 TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -50,8 +51,8 @@ async def client(db_session):
 @pytest_asyncio.fixture
 async def free_user(db_session) -> User:
     user = User(
-        firebase_uid="test:free_user",
         email="free@test.com",
+        password_hash=hash_password("testpassword"),
         display_name="Free User",
         subscription=SubscriptionTier.free,
     )
@@ -64,8 +65,8 @@ async def free_user(db_session) -> User:
 @pytest_asyncio.fixture
 async def premium_user(db_session) -> User:
     user = User(
-        firebase_uid="test:premium_user",
         email="premium@test.com",
+        password_hash=hash_password("testpassword"),
         display_name="Premium User",
         subscription=SubscriptionTier.premium,
     )

@@ -4,10 +4,21 @@ from pydantic import BaseModel, EmailStr
 from app.models.user import SubscriptionTier
 
 
-class UserCreate(BaseModel):
-    firebase_uid: str
+class UserRegister(BaseModel):
     email: EmailStr
+    password: str
     display_name: str | None = None
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: "UserResponse"
 
 
 class UserUpdate(BaseModel):
@@ -17,7 +28,6 @@ class UserUpdate(BaseModel):
 
 class UserResponse(BaseModel):
     id: uuid.UUID
-    firebase_uid: str
     email: str
     display_name: str | None
     subscription: SubscriptionTier

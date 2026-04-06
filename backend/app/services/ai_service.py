@@ -1,10 +1,69 @@
 """
-Claude AI service for premium packing list generation and activity suggestions.
+AI service for premium packing list generation and activity suggestions.
+
+Primary backend: Ollama (free, self-hosted LLM — e.g. Llama 3.1, Mistral)
+Optional fallback: Claude API (if ANTHROPIC_API_KEY is set)
 """
 import json
+import httpx
 from app.config import settings
 from app.models.trip import Trip
 from app.services.rule_engine import PackingRecommendation
+
+
+def _extract_json(text: str) -> str:
+    """Extract JSON from a response that may be wrapped in markdown code blocks."""
+    text = text.strip()
+    if "```" in text:
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+        text = text.strip()
+    return text
+
+
+async def _ollama_generate(prompt: str, max_tokens: int = 2048) -> str | None:
+    """Send a prompt to Ollama and return the response text."""
+    url = f"{settings.ollama_base_url}/api/generate"
+    payload = {
+        "model": settings.ollama_model,
+        "prompt": prompt,
+        "stream": False,
+        "options": {"num_predict": max_tokens, "temperature": 0.7},
+    }
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            resp = await client.post(url, json=payload)
+            resp.raise_for_status()
+            return resp.json().get("response", "")
+        except httpx.HTTPError:
+            return None
+
+
+async def _claude_generate(prompt: str, max_tokens: int = 2048) -> str | None:
+    """Send a prompt to Claude API (only if key is configured)."""
+    if not settings.use_claude:
+        return None
+
+    import anthropic
+    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    message = await client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=max_tokens,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return message.content[0].text.strip()
+
+
+async def _generate(prompt: str, max_tokens: int = 2048) -> str | None:
+    """
+    Try Ollama first (free), fall back to Claude if Ollama is unavailable
+    and a Claude API key is configured.
+    """
+    result = await _ollama_generate(prompt, max_tokens)
+    if result:
+        return result
+    return await _claude_generate(prompt, max_tokens)
 
 
 async def generate_ai_packing_list(
@@ -13,16 +72,9 @@ async def generate_ai_packing_list(
     selected_activities: list[str],
 ) -> list[PackingRecommendation]:
     """
-    Use Claude to generate a smart packing list for premium users.
-    Falls back to an empty list if the API key is not configured.
+    Use AI to generate a smart packing list for premium users.
+    Tries Ollama first, then Claude as fallback.
     """
-    if not settings.anthropic_api_key:
-        return []
-
-    import anthropic
-
-    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-
     prompt = f"""You are a travel packing expert. Generate a comprehensive packing list for this trip.
 
 Trip Details:
@@ -53,33 +105,28 @@ Example format:
   {{"category": "Electronics", "item_name": "Universal power adapter", "quantity": 1, "essential": true}}
 ]
 
-Return 25-45 items covering all necessary categories. Prioritize practical, specific items over generic ones."""
+Return 25-45 items covering all necessary categories. Prioritize practical, specific items over generic ones.
+IMPORTANT: Return ONLY the JSON array, no other text."""
 
-    message = await client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    text = await _generate(prompt)
+    if not text:
+        return []
 
-    text = message.content[0].text.strip()
-    # Extract JSON array if wrapped in markdown code blocks
-    if "```" in text:
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
-        text = text.strip()
-
-    items_data: list[dict] = json.loads(text)
-    return [
-        PackingRecommendation(
-            category=item["category"],
-            item_name=item["item_name"],
-            quantity=item.get("quantity", 1),
-            essential=item.get("essential", False),
-            source="ai",
-        )
-        for item in items_data
-    ]
+    try:
+        text = _extract_json(text)
+        items_data: list[dict] = json.loads(text)
+        return [
+            PackingRecommendation(
+                category=item["category"],
+                item_name=item["item_name"],
+                quantity=item.get("quantity", 1),
+                essential=item.get("essential", False),
+                source="ai",
+            )
+            for item in items_data
+        ]
+    except (json.JSONDecodeError, KeyError):
+        return []
 
 
 async def generate_ai_activities(
@@ -89,16 +136,9 @@ async def generate_ai_activities(
     user_interests: list[str] | None = None,
 ) -> list[dict]:
     """
-    Use Claude to suggest activities and things to do at the destination.
+    Use AI to suggest activities and things to do at the destination.
     Returns a list of activity dicts for premium users.
     """
-    if not settings.anthropic_api_key:
-        return []
-
-    import anthropic
-
-    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-
     interests_str = ", ".join(user_interests) if user_interests else "general travel"
 
     prompt = f"""You are a local travel expert. Suggest activities and things to do for a traveler visiting {destination}.
@@ -120,32 +160,27 @@ Respond with ONLY a valid JSON array. Each item must have:
 - "activity_name": string (specific name)
 - "activity_type": one of: "outdoor", "water", "cultural", "nightlife", "dining", "sports", "beach", "snow", "wellness", "shopping"
 - "description": string (1-2 sentences about why it's worth doing)
-- "is_premium": boolean (mark as true for 3-4 unique/curated suggestions)
 
 Example:
 [
   {{
     "activity_name": "Senso-ji Temple at Dawn",
     "activity_type": "cultural",
-    "description": "Visit Tokyo's oldest temple before the crowds arrive for a serene, spiritual experience.",
-    "is_premium": false
+    "description": "Visit Tokyo's oldest temple before the crowds arrive for a serene, spiritual experience."
   }}
-]"""
+]
 
-    message = await client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
-    )
+IMPORTANT: Return ONLY the JSON array, no other text."""
 
-    text = message.content[0].text.strip()
-    if "```" in text:
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
-        text = text.strip()
+    text = await _generate(prompt)
+    if not text:
+        return []
 
-    return json.loads(text)
+    try:
+        text = _extract_json(text)
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return []
 
 
 async def get_activity_packing_additions(
@@ -155,16 +190,9 @@ async def get_activity_packing_additions(
     existing_items: list[str],
 ) -> list[PackingRecommendation]:
     """
-    When a user selects an activity, ask Claude if any additional items are needed
+    When a user selects an activity, ask AI if any additional items are needed
     beyond what the rule engine already added.
     """
-    if not settings.anthropic_api_key:
-        return []
-
-    import anthropic
-
-    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-
     existing_str = ", ".join(existing_items[:30]) if existing_items else "none yet"
 
     prompt = f"""A traveler to {destination} has selected the activity: "{activity_name}" ({activity_type}).
@@ -179,30 +207,26 @@ Respond with ONLY a valid JSON array (can be empty [] if nothing new is needed):
   {{"category": "Gear", "item_name": "Specific item", "quantity": 1, "essential": true}}
 ]
 
-Maximum 5 new items. Categories: "Clothing", "Electronics", "Documents", "Toiletries", "Health", "Gear", "Misc"."""
+Maximum 5 new items. Categories: "Clothing", "Electronics", "Documents", "Toiletries", "Health", "Gear", "Misc".
+IMPORTANT: Return ONLY the JSON array, no other text."""
 
-    message = await client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=512,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    text = await _generate(prompt, max_tokens=512)
+    if not text:
+        return []
 
-    text = message.content[0].text.strip()
-    if "```" in text:
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
-        text = text.strip()
-
-    items_data = json.loads(text)
-    return [
-        PackingRecommendation(
-            category=item["category"],
-            item_name=item["item_name"],
-            quantity=item.get("quantity", 1),
-            essential=item.get("essential", False),
-            source="ai",
-            activity_type=activity_type,
-        )
-        for item in items_data
-    ]
+    try:
+        text = _extract_json(text)
+        items_data = json.loads(text)
+        return [
+            PackingRecommendation(
+                category=item["category"],
+                item_name=item["item_name"],
+                quantity=item.get("quantity", 1),
+                essential=item.get("essential", False),
+                source="ai",
+                activity_type=activity_type,
+            )
+            for item in items_data
+        ]
+    except (json.JSONDecodeError, KeyError):
+        return []

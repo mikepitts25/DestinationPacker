@@ -7,7 +7,7 @@ from app.models.user import User
 
 
 def auth_headers(user: User) -> dict:
-    return {"Authorization": f"Bearer test:{user.firebase_uid.replace('test:', '')}"}
+    return {"Authorization": f"Bearer test:{user.email}"}
 
 
 @pytest.mark.asyncio

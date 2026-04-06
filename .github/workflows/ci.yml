@@ -50,9 +50,7 @@ jobs:
           REDIS_URL: redis://localhost:6379
           SECRET_KEY: test_secret_key
           ENVIRONMENT: test
-          ANTHROPIC_API_KEY: test_key
-          OPENWEATHER_API_KEY: test_key
-          GOOGLE_PLACES_API_KEY: test_key
+          OLLAMA_BASE_URL: http://localhost:11434
         run: |
           cd backend
           pytest -v --cov=app --cov-report=term-missing

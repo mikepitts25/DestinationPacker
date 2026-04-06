@@ -28,7 +28,6 @@ export type ItemSource = 'rule_engine' | 'ai' | 'activity' | 'user_added';
 
 export interface User {
   id: string;
-  firebase_uid: string;
   email: string;
   display_name: string | null;
   subscription: SubscriptionTier;

@@ -1,146 +1,180 @@
 """
-Google Places service for destination autocomplete and activity suggestions.
+Places service — uses Nominatim (OpenStreetMap geocoding) + Overpass API for POIs.
+Both are free, open-source, and require no API key.
+
+Nominatim usage policy: max 1 request/sec, include a User-Agent.
+https://nominatim.org/release-docs/latest/api/Overview/
 """
 import httpx
-from app.config import settings
+
+USER_AGENT = "DestinationPacker/1.0 (travel packing app)"
+NOMINATIM_URL = "https://nominatim.openstreetmap.org"
+OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
 
 async def autocomplete_destination(query: str) -> list[dict]:
     """
-    Use Google Places Autocomplete to suggest destinations.
-    Returns a list of {place_id, description, lat, lon}.
+    Use Nominatim to geocode/search for destinations.
+    Returns a list of {place_id, description}.
     """
-    if not settings.google_places_api_key:
-        return []
-
-    url = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
+    url = f"{NOMINATIM_URL}/search"
     params = {
-        "input": query,
-        "types": "(cities)",
-        "key": settings.google_places_api_key,
+        "q": query,
+        "format": "jsonv2",
+        "addressdetails": 1,
+        "limit": 8,
+        "featuretype": "city",
     }
+    headers = {"User-Agent": USER_AGENT}
 
     async with httpx.AsyncClient(timeout=5.0) as client:
-        resp = await client.get(url, params=params)
-        resp.raise_for_status()
-        data = resp.json()
+        try:
+            resp = await client.get(url, params=params, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+        except httpx.HTTPError:
+            return []
 
     results = []
-    for prediction in data.get("predictions", [])[:8]:
+    for item in data:
         results.append({
-            "place_id": prediction["place_id"],
-            "description": prediction["description"],
+            "place_id": str(item.get("osm_id", item.get("place_id", ""))),
+            "description": item.get("display_name", ""),
         })
     return results
 
 
 async def get_place_details(place_id: str) -> dict | None:
     """
-    Fetch lat/lon and country code for a place_id.
+    Fetch lat/lon and country code for a Nominatim place.
+    Uses Nominatim lookup by OSM ID (or search if needed).
     """
-    if not settings.google_places_api_key:
-        return None
-
-    url = "https://maps.googleapis.com/maps/api/place/details/json"
+    # Try lookup first (for OSM IDs)
+    url = f"{NOMINATIM_URL}/lookup"
     params = {
-        "place_id": place_id,
-        "fields": "geometry,address_components,name",
-        "key": settings.google_places_api_key,
+        "osm_ids": f"R{place_id},W{place_id},N{place_id}",
+        "format": "jsonv2",
+        "addressdetails": 1,
     }
+    headers = {"User-Agent": USER_AGENT}
 
     async with httpx.AsyncClient(timeout=5.0) as client:
-        resp = await client.get(url, params=params)
-        resp.raise_for_status()
-        data = resp.json()
+        try:
+            resp = await client.get(url, params=params, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+        except httpx.HTTPError:
+            return None
 
-    result = data.get("result", {})
-    if not result:
+    if not data:
+        # Fallback: search by place_id as a query
+        url = f"{NOMINATIM_URL}/search"
+        params = {"q": place_id, "format": "jsonv2", "addressdetails": 1, "limit": 1}
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            try:
+                resp = await client.get(url, params=params, headers=headers)
+                data = resp.json()
+            except httpx.HTTPError:
+                return None
+
+    if not data:
         return None
 
-    location = result.get("geometry", {}).get("location", {})
-    country_code = None
-    for component in result.get("address_components", []):
-        if "country" in component["types"]:
-            country_code = component["short_name"]
-            break
+    item = data[0]
+    address = item.get("address", {})
+    country_code = address.get("country_code", "").upper()
 
     return {
-        "name": result.get("name"),
-        "lat": location.get("lat"),
-        "lon": location.get("lng"),
-        "country_code": country_code,
+        "name": item.get("name") or item.get("display_name", "").split(",")[0],
+        "lat": float(item.get("lat", 0)),
+        "lon": float(item.get("lon", 0)),
+        "country_code": country_code or None,
     }
 
 
 async def get_nearby_activities(lat: float, lon: float, destination: str) -> list[dict]:
     """
-    Fetch nearby tourist attractions using Google Places Nearby Search.
-    Returns list of activity suggestions.
+    Fetch nearby points of interest using the Overpass API (OpenStreetMap).
+    Queries for tourism, leisure, and amenity nodes near the coordinates.
     """
-    if not settings.google_places_api_key:
-        return _get_fallback_activities(destination)
+    # Overpass QL query: find tourism, leisure, and notable amenities within 10km
+    query = f"""
+    [out:json][timeout:10];
+    (
+      node["tourism"~"attraction|museum|artwork|viewpoint|zoo|theme_park"](around:10000,{lat},{lon});
+      node["leisure"~"park|garden|beach_resort|nature_reserve|sports_centre"](around:10000,{lat},{lon});
+      node["amenity"~"restaurant|nightclub|theatre|cinema"](around:8000,{lat},{lon});
+    );
+    out body 20;
+    """
 
-    url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
-    activity_types = [
-        ("tourist_attraction", "cultural"),
-        ("museum", "cultural"),
-        ("park", "outdoor"),
-        ("amusement_park", "outdoor"),
-        ("beach", "beach"),
-        ("restaurant", "dining"),
-        ("night_club", "nightlife"),
-        ("spa", "wellness"),
-        ("stadium", "sports"),
-    ]
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        try:
+            resp = await client.post(OVERPASS_URL, data={"data": query})
+            resp.raise_for_status()
+            data = resp.json()
+        except httpx.HTTPError:
+            return _get_fallback_activities(destination)
+
+    elements = data.get("elements", [])
+    if not elements:
+        return _get_fallback_activities(destination)
 
     all_activities = []
     seen_names: set[str] = set()
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        for place_type, activity_type in activity_types[:4]:  # Limit API calls
-            params = {
-                "location": f"{lat},{lon}",
-                "radius": 10000,
-                "type": place_type,
-                "key": settings.google_places_api_key,
-            }
-            try:
-                resp = await client.get(url, params=params)
-                resp.raise_for_status()
-                data = resp.json()
+    for el in elements:
+        tags = el.get("tags", {})
+        name = tags.get("name", "")
+        if not name or name.lower() in seen_names:
+            continue
+        seen_names.add(name.lower())
 
-                for place in data.get("results", [])[:3]:
-                    name = place.get("name", "")
-                    if name and name not in seen_names:
-                        seen_names.add(name)
-                        photo_ref = None
-                        if place.get("photos"):
-                            photo_ref = place["photos"][0].get("photo_reference")
+        activity_type = _classify_osm_tags(tags)
+        description = tags.get("description", tags.get("tourism", tags.get("leisure", tags.get("amenity", ""))))
 
-                        photo_url = None
-                        if photo_ref:
-                            photo_url = (
-                                f"https://maps.googleapis.com/maps/api/place/photo"
-                                f"?maxwidth=400&photo_reference={photo_ref}"
-                                f"&key={settings.google_places_api_key}"
-                            )
+        all_activities.append({
+            "activity_name": name,
+            "activity_type": activity_type,
+            "description": description.capitalize() if description else f"Explore {name}",
+            "source": "openstreetmap",
+            "external_id": f"osm:{el.get('id', '')}",
+            "photo_url": None,  # OSM doesn't provide photos directly
+        })
 
-                        all_activities.append({
-                            "activity_name": name,
-                            "activity_type": activity_type,
-                            "description": place.get("vicinity", ""),
-                            "source": "google_places",
-                            "external_id": place.get("place_id"),
-                            "photo_url": photo_url,
-                        })
-            except httpx.HTTPError:
-                continue
+    return all_activities[:15] or _get_fallback_activities(destination)
 
-    return all_activities or _get_fallback_activities(destination)
+
+def _classify_osm_tags(tags: dict) -> str:
+    """Map OSM tags to our activity types."""
+    tourism = tags.get("tourism", "")
+    leisure = tags.get("leisure", "")
+    amenity = tags.get("amenity", "")
+
+    if tourism in ("museum", "artwork"):
+        return "cultural"
+    if tourism in ("attraction", "viewpoint"):
+        return "cultural"
+    if tourism in ("zoo", "theme_park"):
+        return "outdoor"
+    if leisure in ("park", "garden", "nature_reserve"):
+        return "outdoor"
+    if leisure == "beach_resort":
+        return "beach"
+    if leisure == "sports_centre":
+        return "sports"
+    if amenity == "restaurant":
+        return "dining"
+    if amenity == "nightclub":
+        return "nightlife"
+    if amenity in ("theatre", "cinema"):
+        return "cultural"
+
+    return "cultural"  # default
 
 
 def _get_fallback_activities(destination: str) -> list[dict]:
-    """Generic activity suggestions when APIs are not configured."""
+    """Generic activity suggestions when APIs fail or return nothing."""
     return [
         {"activity_name": f"Explore {destination} city center", "activity_type": "cultural", "description": "Walk around and discover local neighborhoods.", "source": "suggested", "external_id": None, "photo_url": None},
         {"activity_name": "Visit local museums", "activity_type": "cultural", "description": "Explore history, art, and culture.", "source": "suggested", "external_id": None, "photo_url": None},

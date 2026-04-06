@@ -1,5 +1,9 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -8,33 +12,40 @@ from app.db.database import get_db
 from app.models.user import User, SubscriptionTier
 
 security = HTTPBearer()
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-async def verify_firebase_token(token: str) -> dict:
-    """Verify a Firebase ID token and return its claims."""
+# ─── Password helpers ─────────────────────────────────────────────────────────
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)
+
+
+# ─── JWT helpers ──────────────────────────────────────────────────────────────
+
+def create_access_token(user_id: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+    payload = {"sub": user_id, "exp": expire}
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
+def decode_access_token(token: str) -> str:
+    """Return user_id from a valid JWT, or raise."""
     try:
-        import firebase_admin
-        from firebase_admin import auth as firebase_auth, credentials
-        import json
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        user_id: str | None = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        return user_id
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
-        # Initialize Firebase app if not already done
-        if not firebase_admin._apps:
-            if settings.firebase_service_account_json and settings.firebase_service_account_json != "{}":
-                cred_data = json.loads(settings.firebase_service_account_json)
-                cred = credentials.Certificate(cred_data)
-            else:
-                # Use project_id only for token verification (works in test env)
-                cred = credentials.ApplicationDefault()
-            firebase_admin.initialize_app(cred, {"projectId": settings.firebase_project_id})
 
-        decoded = firebase_auth.verify_id_token(token)
-        return decoded
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid authentication token: {str(e)}",
-        )
-
+# ─── FastAPI dependencies ─────────────────────────────────────────────────────
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -42,27 +53,24 @@ async def get_current_user(
 ) -> User:
     token = credentials.credentials
 
-    # In test environment, accept a simple JWT format
-    if settings.environment == "test":
-        # For testing: token format is "test:<firebase_uid>"
-        if token.startswith("test:"):
-            firebase_uid = token.split(":", 1)[1]
-            result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
-            user = result.scalar_one_or_none()
-            if not user:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-            return user
+    # Test environment shortcut
+    if settings.environment == "test" and token.startswith("test:"):
+        test_email = token.split(":", 1)[1]
+        result = await db.execute(select(User).where(User.email == test_email))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        return user
 
-    claims = await verify_firebase_token(token)
-    firebase_uid = claims["uid"]
+    user_id = decode_access_token(token)
 
-    result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not registered. Please complete sign-up.",
+            detail="User not found.",
         )
 
     return user
