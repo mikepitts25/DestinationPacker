@@ -22,7 +22,8 @@ export type ActivityType =
   | 'snow'
   | 'business'
   | 'wellness'
-  | 'shopping';
+  | 'shopping'
+  | 'souvenirs';
 
 export type ItemSource = 'rule_engine' | 'ai' | 'activity' | 'user_added';
 

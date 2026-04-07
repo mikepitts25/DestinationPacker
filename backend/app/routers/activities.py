@@ -57,7 +57,7 @@ async def fetch_and_store_activities(
     existing = await db.execute(
         select(TripActivity).where(
             TripActivity.trip_id == trip.id,
-            TripActivity.source.in_(["google_places", "ai_suggested", "suggested"]),
+            TripActivity.source.in_(["google_places", "openstreetmap", "ai_suggested", "suggested", "souvenir_guide"]),
         )
     )
     for act in existing.scalars().all():

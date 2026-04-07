@@ -19,6 +19,7 @@ const ACTIVITY_EMOJI: Record<ActivityType, string> = {
   business: '💼',
   wellness: '🧘',
   shopping: '🛍️',
+  souvenirs: '🎁',
 };
 
 const FILTER_TYPES: { label: string; value: ActivityType | 'all' }[] = [
@@ -26,8 +27,8 @@ const FILTER_TYPES: { label: string; value: ActivityType | 'all' }[] = [
   { label: '🥾 Outdoor', value: 'outdoor' },
   { label: '🏛️ Culture', value: 'cultural' },
   { label: '🍽️ Dining', value: 'dining' },
+  { label: '🎁 Souvenirs', value: 'souvenirs' },
   { label: '🏖️ Beach', value: 'beach' },
-  { label: '⛷️ Snow', value: 'snow' },
   { label: '🌃 Nightlife', value: 'nightlife' },
 ];
 

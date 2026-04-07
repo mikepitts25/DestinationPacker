@@ -149,17 +149,18 @@ Trip context:
 - Duration: {duration_days} days
 - Traveler interests: {interests_str}
 
-Suggest 12-15 activities. Include a mix of:
+Suggest 15-18 activities. Include a mix of:
 - Must-see landmarks and attractions
 - Local experiences and hidden gems
 - Dining and food experiences
 - Outdoor/nature activities (if applicable)
 - Cultural experiences
+- 2-4 local souvenirs/products to buy that are typical of {destination} (e.g., coffee beans in Colombia, olive oil in Italy, silk in Thailand). For souvenirs use activity_type "souvenirs" and prefix the name with "Buy: ".
 
 Respond with ONLY a valid JSON array. Each item must have:
-- "activity_name": string (specific name)
-- "activity_type": one of: "outdoor", "water", "cultural", "nightlife", "dining", "sports", "beach", "snow", "wellness", "shopping"
-- "description": string (1-2 sentences about why it's worth doing)
+- "activity_name": string (specific name — for souvenirs, prefix with "Buy: ")
+- "activity_type": one of: "outdoor", "water", "cultural", "nightlife", "dining", "sports", "beach", "snow", "wellness", "shopping", "souvenirs"
+- "description": string (1-2 sentences. For souvenirs, explain what makes it special and where to buy it.)
 
 Example:
 [
@@ -167,6 +168,11 @@ Example:
     "activity_name": "Senso-ji Temple at Dawn",
     "activity_type": "cultural",
     "description": "Visit Tokyo's oldest temple before the crowds arrive for a serene, spiritual experience."
+  }},
+  {{
+    "activity_name": "Buy: Japanese whisky",
+    "activity_type": "souvenirs",
+    "description": "World-award-winning whisky from Suntory or Nikka — often cheaper in Japan. Try distillery-exclusive bottles."
   }}
 ]
 

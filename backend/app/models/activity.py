@@ -18,6 +18,7 @@ class ActivityType(str, enum.Enum):
     business = "business"
     wellness = "wellness"
     shopping = "shopping"
+    souvenirs = "souvenirs"
 
 
 class TripActivity(Base):

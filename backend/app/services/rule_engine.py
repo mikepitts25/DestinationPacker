@@ -206,6 +206,12 @@ ACTIVITY_RULES: dict[str, list[tuple[str, str, int, bool]]] = {
         ("Clothing", "Smart casual outfit", 2, False),
         ("Documents", "Restaurant reservation confirmations", 1, False),
     ],
+    "souvenirs": [
+        ("Misc", "Extra foldable duffel bag (for bringing souvenirs home)", 1, True),
+        ("Misc", "Bubble wrap or packing sleeves (for fragile items)", 1, False),
+        ("Misc", "Ziplock bags (to protect food souvenirs)", 3, False),
+        ("Documents", "Customs declaration info (know your duty-free limits)", 1, False),
+    ],
 }
 
 # Travel method rules
