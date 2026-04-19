@@ -7,8 +7,8 @@ set -euo pipefail
 # --- CONFIGURATION --- edit these before running ------------------------------
 # IMPORTANT: Use SINGLE quotes for passwords/keys to avoid issues with
 # special characters like $, !, #, etc.
-DB_PASSWORD='PLACEHOLDER_db_password'          # Strong password for PostgreSQL
-SECRET_KEY='PLACEHOLDER_secret_key_64chars'    # Run: openssl rand -hex 32
+DB_PASSWORD="ten987SIX"          # Strong password for PostgreSQL
+SECRET_KEY="f05caf900249e5c5582b92bd14afa0c9b8a1ac22958815f77e6bdafddea5480f"    # Run: openssl rand -hex 32
 ANTHROPIC_API_KEY=''                           # Optional: leave empty to use Ollama only
 REPO_URL='https://github.com/mikepitts25/destinationpacker.git'
 APP_DIR="$HOME/DestinationPacker"
