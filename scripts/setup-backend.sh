@@ -167,22 +167,24 @@ fi
 # ── 8. Docker services (Postgres + Valkey) ────────────────────────────────────
 COMPOSE_FILE="$APP_DIR/docker-compose.yml"
 
-# Patch DB password into compose file env if needed
-if ! grep -q "POSTGRES_PASSWORD" "$COMPOSE_FILE" 2>/dev/null; then
-  warn "docker-compose.yml may need manual DB password configuration."
+# Patch DB password into compose file to match .env
+if grep -q 'POSTGRES_PASSWORD: packer_secret' "$COMPOSE_FILE" 2>/dev/null; then
+  info "Updating docker-compose.yml with your DB password..."
+  sed -i "s/POSTGRES_PASSWORD: packer_secret/POSTGRES_PASSWORD: ${DB_PASSWORD//\//\\/}/" "$COMPOSE_FILE"
+  sed -i "s|packer:packer_secret@|packer:${DB_PASSWORD}@|g" "$COMPOSE_FILE"
 fi
 
 info "Starting Docker services (Postgres + Valkey)..."
-docker compose -f "$COMPOSE_FILE" up -d postgres valkey
+docker compose -f "$COMPOSE_FILE" up -d db valkey
 info "Waiting for Postgres to be ready..."
 for i in $(seq 1 20); do
-  if docker compose -f "$COMPOSE_FILE" exec -T postgres pg_isready -U packer &>/dev/null; then
+  if docker compose -f "$COMPOSE_FILE" exec -T db pg_isready -U packer &>/dev/null; then
     success "Postgres ready"
     break
   fi
   sleep 2
   if [[ $i -eq 20 ]]; then
-    die "Postgres did not become ready in time. Check: docker compose logs postgres"
+    die "Postgres did not become ready in time. Check: docker compose logs db"
   fi
 done
 
