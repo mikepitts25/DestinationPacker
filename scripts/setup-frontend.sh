@@ -4,11 +4,11 @@
 # Edit the CONFIGURATION section before running.
 set -euo pipefail
 
-# ─── CONFIGURATION — edit these before running ────────────────────────────────
+# --- CONFIGURATION --- edit these before running ------------------------------
 # Your VPS server IP or domain (from setup-backend.sh output)
-BACKEND_IP="PLACEHOLDER_your_vps_ip_or_domain"   # e.g. "192.168.1.100" or "api.myapp.com"
-BACKEND_PORT="8000"
-# ──────────────────────────────────────────────────────────────────────────────
+BACKEND_IP='PLACEHOLDER_your_vps_ip_or_domain'   # e.g. 192.168.1.100 or api.myapp.com
+BACKEND_PORT='8000'
+# ------------------------------------------------------------------------------
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 info()    { echo -e "${BLUE}[INFO]${NC} $*"; }
@@ -27,9 +27,9 @@ if [[ "$(uname)" != "Darwin" ]]; then
 fi
 
 echo ""
-echo "╔════════════════════════════════════════════╗"
-echo "║   DestinationPacker — Frontend Setup (Mac) ║"
-echo "╚════════════════════════════════════════════╝"
+echo "=============================================="
+echo "   DestinationPacker -- Frontend Setup (Mac)"
+echo "=============================================="
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -153,9 +153,9 @@ fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
-echo "╔════════════════════════════════════════════╗"
-echo "║   Setup complete!                           ║"
-echo "╚════════════════════════════════════════════╝"
+echo "=============================================="
+echo "   Setup complete!"
+echo "=============================================="
 echo ""
 echo "  Start the dev server:"
 echo "    cd mobile && npx expo start"

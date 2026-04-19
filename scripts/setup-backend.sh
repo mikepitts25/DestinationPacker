@@ -4,14 +4,16 @@
 # Edit the PLACEHOLDER values below before running.
 set -euo pipefail
 
-# ─── CONFIGURATION — edit these before running ────────────────────────────────
-DB_PASSWORD="PLACEHOLDER_db_password"          # Strong password for PostgreSQL
-SECRET_KEY="PLACEHOLDER_secret_key_64chars"    # Run: openssl rand -hex 32
-ANTHROPIC_API_KEY=""                           # Optional: leave empty to use Ollama only
-REPO_URL="https://github.com/mikepitts25/destinationpacker.git"
+# --- CONFIGURATION --- edit these before running ------------------------------
+# IMPORTANT: Use SINGLE quotes for passwords/keys to avoid issues with
+# special characters like $, !, #, etc.
+DB_PASSWORD='PLACEHOLDER_db_password'          # Strong password for PostgreSQL
+SECRET_KEY='PLACEHOLDER_secret_key_64chars'    # Run: openssl rand -hex 32
+ANTHROPIC_API_KEY=''                           # Optional: leave empty to use Ollama only
+REPO_URL='https://github.com/mikepitts25/destinationpacker.git'
 APP_DIR="$HOME/DestinationPacker"
-OLLAMA_MODEL="llama3.1:8b"
-# ──────────────────────────────────────────────────────────────────────────────
+OLLAMA_MODEL='llama3.1:8b'
+# ------------------------------------------------------------------------------
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 info()    { echo -e "${BLUE}[INFO]${NC} $*"; }
@@ -25,9 +27,9 @@ if [[ "$DB_PASSWORD" == "PLACEHOLDER_db_password" || "$SECRET_KEY" == "PLACEHOLD
 fi
 
 echo ""
-echo "╔════════════════════════════════════════════╗"
-echo "║   DestinationPacker — Backend Setup         ║"
-echo "╚════════════════════════════════════════════╝"
+echo "=============================================="
+echo "   DestinationPacker -- Backend Setup"
+echo "=============================================="
 echo ""
 
 # ── 1. System packages ────────────────────────────────────────────────────────
@@ -143,18 +145,22 @@ if [[ -f "$ENV_FILE" ]]; then
   success ".env already exists — not overwriting"
 else
   info "Creating .env from template..."
-  cat > "$ENV_FILE" <<EOF
-DATABASE_URL=postgresql+asyncpg://packer:${DB_PASSWORD}@localhost:5432/destinationpacker
-REDIS_URL=redis://localhost:6379
-SECRET_KEY=${SECRET_KEY}
-
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=${OLLAMA_MODEL}
-
-$([ -n "$ANTHROPIC_API_KEY" ] && echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" || echo "# ANTHROPIC_API_KEY=")
-
-ENVIRONMENT=production
-EOF
+  {
+    printf 'DATABASE_URL=postgresql+asyncpg://packer:%s@localhost:5432/destinationpacker\n' "$DB_PASSWORD"
+    printf 'REDIS_URL=redis://localhost:6379\n'
+    printf 'SECRET_KEY=%s\n' "$SECRET_KEY"
+    printf '\n'
+    printf 'OLLAMA_BASE_URL=http://localhost:11434\n'
+    printf 'OLLAMA_MODEL=%s\n' "$OLLAMA_MODEL"
+    printf '\n'
+    if [[ -n "$ANTHROPIC_API_KEY" ]]; then
+      printf 'ANTHROPIC_API_KEY=%s\n' "$ANTHROPIC_API_KEY"
+    else
+      printf '# ANTHROPIC_API_KEY=\n'
+    fi
+    printf '\n'
+    printf 'ENVIRONMENT=production\n'
+  } > "$ENV_FILE"
   success ".env created at $ENV_FILE"
 fi
 
@@ -228,9 +234,9 @@ fi
 # ── Done ──────────────────────────────────────────────────────────────────────
 SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
 echo ""
-echo "╔════════════════════════════════════════════╗"
-echo "║   Setup complete!                           ║"
-echo "╚════════════════════════════════════════════╝"
+echo "=============================================="
+echo "   Setup complete!"
+echo "=============================================="
 echo ""
 echo "  API running at:  http://${SERVER_IP}:8000"
 echo "  Health check:    curl http://${SERVER_IP}:8000/health"
