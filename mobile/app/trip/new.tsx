@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Platform, FlatList } from 'react-native';
-import { Text, Button, TextInput, HelperText, ProgressBar, Menu } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { Text, Button, TextInput, HelperText, ProgressBar, Menu, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -46,6 +46,7 @@ export default function NewTripScreen() {
     travelers: 1,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState('');
 
   // Date picker state
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -134,6 +135,10 @@ export default function NewTripScreen() {
     } catch (err: any) {
       if (err.isPaymentRequired) {
         router.push('/premium');
+      } else if (err.isUnauthorized) {
+        setSubmitError('Session expired — please sign in again.');
+      } else {
+        setSubmitError(err.message || 'Failed to create trip. Is the backend reachable?');
       }
     }
   };
@@ -365,6 +370,15 @@ export default function NewTripScreen() {
           {step === STEPS.length - 1 ? '✨ Generate Packing List' : 'Next'}
         </Button>
       </View>
+
+      <Snackbar
+        visible={!!submitError}
+        onDismiss={() => setSubmitError('')}
+        duration={5000}
+        action={{ label: 'Dismiss', onPress: () => setSubmitError('') }}
+      >
+        {submitError}
+      </Snackbar>
     </SafeAreaView>
   );
 }
