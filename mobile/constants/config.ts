@@ -2,10 +2,10 @@ import Constants from 'expo-constants';
 
 const ENV = {
   development: {
-    API_URL: 'http://localhost:8000/api',
+    API_URL: 'http://185.135.137.33:8000/api',
   },
   production: {
-    API_URL: 'https://api.destinationpacker.app/api',
+    API_URL: 'http://185.135.137.33:8000/api',
   },
 };
 
