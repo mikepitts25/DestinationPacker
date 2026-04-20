@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DestinationPacker — Backend Setup Script (Ubuntu VPS)
+# DestinationPacker - Backend Setup Script (Ubuntu VPS)
 # Run this once on a fresh Ubuntu 22.04+ server.
 # Edit the PLACEHOLDER values below before running.
 set -euo pipefail
@@ -7,8 +7,8 @@ set -euo pipefail
 # --- CONFIGURATION --- edit these before running ------------------------------
 # IMPORTANT: Use SINGLE quotes for passwords/keys to avoid issues with
 # special characters like $, !, #, etc.
-DB_PASSWORD="ten987SIX"          # Strong password for PostgreSQL
-SECRET_KEY="f05caf900249e5c5582b92bd14afa0c9b8a1ac22958815f77e6bdafddea5480f"    # Run: openssl rand -hex 32
+DB_PASSWORD='PLACEHOLDER_db_password'          # Strong password for PostgreSQL
+SECRET_KEY='PLACEHOLDER_secret_key_64chars'    # Run: openssl rand -hex 32
 ANTHROPIC_API_KEY=''                           # Optional: leave empty to use Ollama only
 REPO_URL='https://github.com/mikepitts25/destinationpacker.git'
 APP_DIR="$HOME/DestinationPacker"
@@ -32,7 +32,7 @@ echo "   DestinationPacker -- Backend Setup"
 echo "=============================================="
 echo ""
 
-# ── 1. System packages ────────────────────────────────────────────────────────
+# -- 1. System packages --------------------------------------------------------
 info "Updating apt..."
 sudo apt-get update -qq
 
@@ -49,7 +49,7 @@ for pkg in curl wget git build-essential ca-certificates gnupg lsb-release; do
   install_pkg "$pkg"
 done
 
-# ── 2. Python 3.12 ────────────────────────────────────────────────────────────
+# -- 2. Python 3.12 ------------------------------------------------------------
 if command -v python3.12 &>/dev/null; then
   success "Python 3.12 already installed ($(python3.12 --version))"
 else
@@ -63,7 +63,7 @@ if ! command -v pip3 &>/dev/null; then
   sudo apt-get install -y -qq python3-pip
 fi
 
-# ── 3. Docker ─────────────────────────────────────────────────────────────────
+# -- 3. Docker -----------------------------------------------------------------
 if command -v docker &>/dev/null; then
   success "Docker already installed ($(docker --version))"
 else
@@ -90,7 +90,7 @@ else
   sudo apt-get install -y -qq docker-compose-plugin
 fi
 
-# ── 4. Ollama ─────────────────────────────────────────────────────────────────
+# -- 4. Ollama -----------------------------------------------------------------
 if command -v ollama &>/dev/null; then
   success "Ollama already installed ($(ollama --version 2>/dev/null || echo 'version unknown'))"
 else
@@ -114,9 +114,9 @@ else
   ollama pull "$OLLAMA_MODEL"
 fi
 
-# ── 5. Clone / update repo ────────────────────────────────────────────────────
+# -- 5. Clone / update repo ----------------------------------------------------
 if [[ -d "$APP_DIR/.git" ]]; then
-  info "Repo already cloned — pulling latest changes..."
+  info "Repo already cloned -- pulling latest changes..."
   git -C "$APP_DIR" pull
 else
   info "Cloning repository to $APP_DIR..."
@@ -124,7 +124,7 @@ else
 fi
 cd "$APP_DIR"
 
-# ── 6. Python virtual environment ────────────────────────────────────────────
+# -- 6. Python virtual environment ---------------------------------------------
 VENV="$APP_DIR/backend/venv"
 if [[ -d "$VENV" ]]; then
   success "Python venv already exists"
@@ -139,10 +139,10 @@ pip install --upgrade pip -q
 pip install -r "$APP_DIR/backend/requirements.txt" -q
 success "Python dependencies installed"
 
-# ── 7. .env file ──────────────────────────────────────────────────────────────
+# -- 7. .env file --------------------------------------------------------------
 ENV_FILE="$APP_DIR/backend/.env"
 if [[ -f "$ENV_FILE" ]]; then
-  success ".env already exists — not overwriting"
+  success ".env already exists -- not overwriting"
 else
   info "Creating .env from template..."
   {
@@ -164,7 +164,7 @@ else
   success ".env created at $ENV_FILE"
 fi
 
-# ── 8. Docker services (Postgres + Valkey) ────────────────────────────────────
+# -- 8. Docker services (Postgres + Valkey) ------------------------------------
 COMPOSE_FILE="$APP_DIR/docker-compose.yml"
 
 # Patch DB password into compose file to match .env
@@ -188,13 +188,13 @@ for i in $(seq 1 20); do
   fi
 done
 
-# ── 9. Alembic migrations ─────────────────────────────────────────────────────
+# -- 9. Alembic migrations -----------------------------------------------------
 info "Running database migrations..."
 cd "$APP_DIR/backend"
 alembic upgrade head
 success "Database migrations applied"
 
-# ── 10. Systemd service for the API ──────────────────────────────────────────
+# -- 10. Systemd service for the API -------------------------------------------
 SERVICE_FILE="/etc/systemd/system/destinationpacker.service"
 if [[ -f "$SERVICE_FILE" ]]; then
   success "Systemd service already exists"
@@ -233,7 +233,7 @@ else
   warn "API service may not have started. Check: sudo journalctl -u destinationpacker -n 50"
 fi
 
-# ── Done ──────────────────────────────────────────────────────────────────────
+# -- Done ----------------------------------------------------------------------
 SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
 echo ""
 echo "=============================================="
