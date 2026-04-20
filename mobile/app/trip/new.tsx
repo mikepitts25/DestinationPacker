@@ -32,7 +32,10 @@ const ACCOMMODATION_TYPES: { value: AccommodationType; label: string; emoji: str
 const TRAVELER_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function parseDate(dateStr: string): Date {
