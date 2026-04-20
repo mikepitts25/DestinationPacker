@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
 import { lightTheme } from '@/constants/theme';
 import { usersApi } from '@/services/api';
+import { BackendIndicator } from '@/components/BackendIndicator';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,6 +35,7 @@ export default function RootLayout() {
       <PaperProvider theme={lightTheme}>
         <SafeAreaProvider>
           <AuthBootstrap>
+            <BackendIndicator />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(auth)" options={{ headerShown: false }} />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
