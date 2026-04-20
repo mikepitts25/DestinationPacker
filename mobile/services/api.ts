@@ -30,9 +30,15 @@ async function request<T>(
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ detail: res.statusText }));
-    const err = new ApiError(error.detail ?? 'Unknown error', res.status);
-    throw err;
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    // detail can be a string or a Pydantic array of validation errors
+    let detail: string;
+    if (Array.isArray(body.detail)) {
+      detail = body.detail.map((e: any) => e.msg ?? JSON.stringify(e)).join(', ');
+    } else {
+      detail = String(body.detail ?? res.statusText ?? 'Unknown error');
+    }
+    throw new ApiError(`${detail} (${res.status})`, res.status);
   }
 
   if (res.status === 204) return undefined as T;

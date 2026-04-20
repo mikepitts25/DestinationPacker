@@ -47,6 +47,19 @@ app.include_router(weather_router, prefix="/api")
 @app.get("/health")
 async def health():
     import httpx
+    from sqlalchemy import text
+    from app.db.database import AsyncSessionLocal
+
+    # Check DB
+    db_ok = False
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+            db_ok = True
+    except Exception:
+        pass
+
+    # Check Ollama
     ollama_ok = False
     try:
         async with httpx.AsyncClient(timeout=2.0) as client:
@@ -59,8 +72,9 @@ async def health():
         "claude" if settings.use_claude else "rule_engine"
     )
     return {
-        "status": "ok",
+        "status": "ok" if db_ok else "degraded",
         "version": "1.0.0",
+        "db": "ok" if db_ok else "error",
         "ai_provider": ai_provider,
         "ollama_available": ollama_ok,
     }

@@ -6,6 +6,8 @@ import { config } from '@/constants/config';
 type Status = 'checking' | 'connected' | 'disconnected';
 
 interface HealthInfo {
+  status?: string;
+  db?: string;
   ai_provider?: string;
   ollama_available?: boolean;
 }
@@ -56,6 +58,11 @@ export function BackendIndicator() {
       {expanded && (
         <View style={styles.tooltip}>
           <Text style={styles.tooltipStatus}>{statusLabel}</Text>
+          {info.db && (
+            <Text style={[styles.tooltipModel, { color: info.db === 'ok' ? '#81c784' : '#e57373' }]}>
+              DB: {info.db}
+            </Text>
+          )}
           {info.ai_provider && (
             <Text style={styles.tooltipModel}>AI: {info.ai_provider}</Text>
           )}
