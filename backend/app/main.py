@@ -46,4 +46,21 @@ app.include_router(weather_router, prefix="/api")
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "1.0.0"}
+    import httpx
+    ollama_ok = False
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            r = await client.get(f"{settings.ollama_base_url}/api/tags")
+            ollama_ok = r.status_code == 200
+    except Exception:
+        pass
+
+    ai_provider = f"ollama/{settings.ollama_model}" if ollama_ok else (
+        "claude" if settings.use_claude else "rule_engine"
+    )
+    return {
+        "status": "ok",
+        "version": "1.0.0",
+        "ai_provider": ai_provider,
+        "ollama_available": ollama_ok,
+    }

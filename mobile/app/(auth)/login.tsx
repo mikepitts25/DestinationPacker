@@ -3,8 +3,10 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, Button, TextInput, HelperText } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usersApi, setAuthToken } from '@/services/api';
 import { useAuthStore } from '@/stores/authStore';
+import { AUTH_TOKEN_KEY } from '@/app/_layout';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 
 type Mode = 'login' | 'register';
@@ -16,7 +18,7 @@ export default function LoginScreen() {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setUser, setFirebaseToken } = useAuthStore();
+  const { setUser } = useAuthStore();
 
   const handleSubmit = async () => {
     setError('');
@@ -36,8 +38,8 @@ export default function LoginScreen() {
           ? await usersApi.login({ email, password })
           : await usersApi.register({ email, password, display_name: displayName || undefined });
 
+      await AsyncStorage.setItem(AUTH_TOKEN_KEY, result.access_token);
       setAuthToken(result.access_token);
-      setFirebaseToken(result.access_token);
       setUser(result.user);
       router.replace('/(tabs)');
     } catch (err: any) {

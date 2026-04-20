@@ -5,8 +5,14 @@ import { config } from '@/constants/config';
 
 type Status = 'checking' | 'connected' | 'disconnected';
 
+interface HealthInfo {
+  ai_provider?: string;
+  ollama_available?: boolean;
+}
+
 export function BackendIndicator() {
   const [status, setStatus] = useState<Status>('checking');
+  const [info, setInfo] = useState<HealthInfo>({});
   const [expanded, setExpanded] = useState(false);
 
   const checkConnection = async () => {
@@ -14,7 +20,13 @@ export function BackendIndicator() {
     try {
       const baseUrl = config.API_URL.replace('/api', '');
       const res = await fetch(`${baseUrl}/health`, { method: 'GET' });
-      setStatus(res.ok ? 'connected' : 'disconnected');
+      if (res.ok) {
+        const data = await res.json();
+        setInfo(data);
+        setStatus('connected');
+      } else {
+        setStatus('disconnected');
+      }
     } catch {
       setStatus('disconnected');
     }
@@ -26,8 +38,13 @@ export function BackendIndicator() {
     return () => clearInterval(interval);
   }, []);
 
-  const color = status === 'connected' ? '#34a853' : status === 'disconnected' ? '#ea4335' : '#fbbc04';
-  const label = status === 'connected' ? 'API Connected' : status === 'disconnected' ? 'API Offline' : 'Checking...';
+  const color =
+    status === 'connected' ? '#34a853' :
+    status === 'disconnected' ? '#ea4335' : '#fbbc04';
+
+  const statusLabel =
+    status === 'connected' ? 'API Connected' :
+    status === 'disconnected' ? 'API Offline' : 'Checking...';
 
   return (
     <TouchableOpacity
@@ -38,13 +55,17 @@ export function BackendIndicator() {
       <View style={[styles.dot, { backgroundColor: color }]} />
       {expanded && (
         <View style={styles.tooltip}>
-          <Text style={styles.tooltipText}>{label}</Text>
+          <Text style={styles.tooltipStatus}>{statusLabel}</Text>
+          {info.ai_provider && (
+            <Text style={styles.tooltipModel}>AI: {info.ai_provider}</Text>
+          )}
           <Text style={styles.tooltipUrl}>{config.API_URL}</Text>
         </View>
       )}
     </TouchableOpacity>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
@@ -65,8 +86,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#333',
     borderRadius: 6,
     padding: 8,
-    maxWidth: 200,
+    maxWidth: 220,
   },
-  tooltipText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  tooltipStatus: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  tooltipModel: { color: '#4fc3f7', fontSize: 11, marginTop: 2 },
   tooltipUrl: { color: '#aaa', fontSize: 9, marginTop: 2 },
 });
