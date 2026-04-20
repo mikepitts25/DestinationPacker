@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DestinationPacker — Frontend Setup Script (macOS)
+# DestinationPacker - Frontend Setup Script (macOS)
 # Run this once on your Mac to set up the React Native / Expo dev environment.
 # Edit the CONFIGURATION section before running.
 set -euo pipefail
@@ -36,7 +36,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(dirname "$SCRIPT_DIR")"
 MOBILE_DIR="$APP_DIR/mobile"
 
-# ── 1. Xcode Command Line Tools ───────────────────────────────────────────────
+# -- 1. Xcode Command Line Tools -----------------------------------------------
 if xcode-select -p &>/dev/null; then
   success "Xcode Command Line Tools already installed"
 else
@@ -46,7 +46,7 @@ else
   exit 0
 fi
 
-# ── 2. Homebrew ───────────────────────────────────────────────────────────────
+# -- 2. Homebrew ---------------------------------------------------------------
 if command -v brew &>/dev/null; then
   success "Homebrew already installed ($(brew --version | head -1))"
 else
@@ -59,7 +59,7 @@ else
   fi
 fi
 
-# ── 3. Node.js via nvm ────────────────────────────────────────────────────────
+# -- 3. Node.js via nvm --------------------------------------------------------
 NODE_TARGET="20"
 
 if command -v nvm &>/dev/null || [[ -s "$HOME/.nvm/nvm.sh" ]]; then
@@ -89,7 +89,7 @@ else
 fi
 success "Using Node.js $(node --version)"
 
-# ── 4. Watchman (required for Metro bundler) ──────────────────────────────────
+# -- 4. Watchman (required for Metro bundler) ----------------------------------
 if command -v watchman &>/dev/null; then
   success "Watchman already installed"
 else
@@ -97,7 +97,7 @@ else
   brew install watchman
 fi
 
-# ── 5. Expo CLI ───────────────────────────────────────────────────────────────
+# -- 5. Expo CLI ---------------------------------------------------------------
 if command -v expo &>/dev/null; then
   success "Expo CLI already installed"
 else
@@ -105,7 +105,7 @@ else
   npm install -g expo-cli @expo/cli
 fi
 
-# ── 6. EAS CLI (for building release APK/IPA later) ──────────────────────────
+# -- 6. EAS CLI (for building release APK/IPA later) --------------------------
 if command -v eas &>/dev/null; then
   success "EAS CLI already installed"
 else
@@ -113,7 +113,7 @@ else
   npm install -g eas-cli
 fi
 
-# ── 7. npm install ────────────────────────────────────────────────────────────
+# -- 7. npm install ------------------------------------------------------------
 if [[ ! -d "$MOBILE_DIR" ]]; then
   die "Mobile directory not found at $MOBILE_DIR. Make sure you cloned the full repo."
 fi
@@ -123,7 +123,7 @@ cd "$MOBILE_DIR"
 npm install
 success "npm dependencies installed"
 
-# ── 8. Update API URL in config ───────────────────────────────────────────────
+# -- 8. Update API URL in config -----------------------------------------------
 CONFIG_FILE="$MOBILE_DIR/constants/config.ts"
 API_URL="http://${BACKEND_IP}:${BACKEND_PORT}/api"
 
@@ -135,23 +135,23 @@ if grep -q "destinationpacker.app" "$CONFIG_FILE"; then
   info "Updating production API URL in config.ts to $API_URL..."
   # Use perl for in-place replace (BSD sed on macOS doesn't support -i without suffix reliably)
   perl -i -pe "s|https://api\.destinationpacker\.app/api|${API_URL}|g" "$CONFIG_FILE"
-  success "Updated config.ts: production API URL → $API_URL"
+  success "Updated config.ts: production API URL set to $API_URL"
 else
-  warn "config.ts already has a custom API URL — not overwriting. Check manually:"
+  warn "config.ts already has a custom API URL -- not overwriting. Check manually:"
   warn "  $CONFIG_FILE"
 fi
 
-# ── 9. Verify backend connection ──────────────────────────────────────────────
+# -- 9. Verify backend connection ----------------------------------------------
 info "Testing backend connection..."
 if curl -sf --max-time 5 "http://${BACKEND_IP}:${BACKEND_PORT}/health" > /dev/null 2>&1; then
   success "Backend is reachable at http://${BACKEND_IP}:${BACKEND_PORT}"
 else
   warn "Cannot reach backend at http://${BACKEND_IP}:${BACKEND_PORT}/health"
   warn "Make sure the backend is running and the firewall allows port $BACKEND_PORT."
-  warn "Continue anyway — you can fix the connection later."
+  warn "Continue anyway -- you can fix the connection later."
 fi
 
-# ── Done ──────────────────────────────────────────────────────────────────────
+# -- Done ----------------------------------------------------------------------
 echo ""
 echo "=============================================="
 echo "   Setup complete!"
