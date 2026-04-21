@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -9,9 +11,11 @@ from app.models.activity import TripActivity, ActivityType
 from app.models.packing_item import PackingItem, ItemSource
 from app.schemas.activity import ActivityResponse, ActivityToggle, ActivityAdd
 from app.middleware.auth import get_current_user
-from app.services.places_service import get_nearby_activities
+from app.services.places_service import get_nearby_activities, _get_fallback_activities
 from app.services.ai_service import generate_ai_activities, get_activity_packing_additions
 from app.services.rule_engine import generate_packing_list, ACTIVITY_RULES
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/trips/{trip_id}/activities", tags=["activities"])
 
@@ -64,27 +68,42 @@ async def fetch_and_store_activities(
         await db.delete(act)
     await db.flush()
 
-    # Get activities from Google Places
+    # Get activities from OpenStreetMap / Overpass
     places_activities = []
     if trip.latitude and trip.longitude:
-        places_activities = await get_nearby_activities(trip.latitude, trip.longitude, trip.destination)
+        try:
+            places_activities = await get_nearby_activities(trip.latitude, trip.longitude, trip.destination)
+            logger.info("Overpass returned %d activities for %s", len(places_activities), trip.destination)
+        except Exception as e:
+            logger.warning("Overpass API error for %s: %s", trip.destination, e)
 
     # Get AI activities for premium users
     ai_activities = []
     if current_user.subscription == SubscriptionTier.premium:
+        logger.info("Fetching AI activities for premium user %s", current_user.id)
         user_interests = current_user.preferences.get("interests", [])
-        ai_activities = await generate_ai_activities(
-            trip.destination,
-            str(trip.start_date),
-            trip.duration_days,
-            user_interests,
-        )
+        try:
+            ai_activities = await generate_ai_activities(
+                trip.destination,
+                str(trip.start_date),
+                trip.duration_days,
+                user_interests,
+            )
+            logger.info("AI returned %d activities for %s", len(ai_activities), trip.destination)
+        except Exception as e:
+            logger.warning("AI activity generation failed for %s: %s", trip.destination, e)
 
     # Combine, prefer AI suggestions + places
     all_activities = ai_activities + places_activities
+
+    # Always provide fallback activities if nothing came back
+    if not all_activities:
+        logger.info("No activities from APIs, using fallbacks for %s", trip.destination)
+        all_activities = _get_fallback_activities(trip.destination)
+
     seen_names: set[str] = set()
 
-    for act_data in all_activities[:15]:
+    for act_data in all_activities[:20]:
         name = act_data.get("activity_name", "")
         if not name or name.lower() in seen_names:
             continue

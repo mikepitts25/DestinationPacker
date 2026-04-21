@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Text, Button, List } from 'react-native-paper';
+import { Text, Button, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { usersApi } from '@/services/api';
+import { useAuthStore } from '@/stores/authStore';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 
 const FEATURES = [
@@ -16,23 +19,28 @@ const FEATURES = [
 ];
 
 export default function PremiumScreen() {
-  const handleMonthly = async () => {
-    // TODO: Integrate RevenueCat purchase flow
-    // const { customerInfo } = await Purchases.purchasePackage(monthlyPackage);
-    console.log('Purchase monthly');
-    router.back();
+  const { setUser, isPremium } = useAuthStore();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const activatePremium = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const updatedUser = await usersApi.updateSubscription('premium');
+      setUser(updatedUser);
+      router.back();
+    } catch (err: any) {
+      setError(err.message || 'Failed to activate premium');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAnnual = async () => {
-    // TODO: Integrate RevenueCat purchase flow
-    console.log('Purchase annual');
-    router.back();
-  };
+  const handleMonthly = () => activatePremium();
+  const handleAnnual = () => activatePremium();
 
-  const handleRestore = () => {
-    // TODO: Purchases.restorePurchases()
-    console.log('Restore purchases');
-  };
+  const handleRestore = () => activatePremium();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -104,8 +112,10 @@ export default function PremiumScreen() {
           onPress={handleAnnual}
           style={styles.ctaButton}
           contentStyle={styles.ctaButtonContent}
+          loading={loading}
+          disabled={loading || isPremium}
         >
-          Start Free Trial
+          {isPremium ? 'You have Premium' : 'Start Free Trial'}
         </Button>
 
         <Text style={styles.legalText}>
@@ -115,7 +125,21 @@ export default function PremiumScreen() {
         <Button mode="text" onPress={handleRestore} textColor={Colors.muted}>
           Restore Purchases
         </Button>
+
+        {isPremium && (
+          <View style={styles.alreadyPremium}>
+            <Text style={styles.alreadyPremiumText}>✅ You have Premium!</Text>
+          </View>
+        )}
       </ScrollView>
+
+      <Snackbar
+        visible={!!error}
+        onDismiss={() => setError('')}
+        duration={4000}
+      >
+        {error}
+      </Snackbar>
     </SafeAreaView>
   );
 }
@@ -176,4 +200,12 @@ const styles = StyleSheet.create({
   ctaButton: { borderRadius: 12, marginBottom: Spacing.md },
   ctaButtonContent: { paddingVertical: Spacing.sm },
   legalText: { ...Typography.caption, color: Colors.muted, textAlign: 'center', marginBottom: Spacing.md },
+  alreadyPremium: {
+    backgroundColor: '#e6f4ea',
+    borderRadius: 12,
+    padding: Spacing.md,
+    alignItems: 'center',
+    marginTop: Spacing.md,
+  },
+  alreadyPremiumText: { ...Typography.body, color: Colors.secondary, fontWeight: '700' },
 });

@@ -84,6 +84,9 @@ export const usersApi = {
 
   updateMe: (data: { display_name?: string; preferences?: Record<string, unknown> }) =>
     request<User>('PATCH', '/users/me', data),
+
+  updateSubscription: (subscription: 'free' | 'premium') =>
+    request<User>('POST', '/users/me/subscription', { subscription }),
 };
 
 // ─── Trips ───────────────────────────────────────────────────────────────────
