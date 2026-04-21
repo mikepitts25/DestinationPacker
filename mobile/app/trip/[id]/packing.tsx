@@ -130,9 +130,7 @@ function CategorySection({
               {item.quantity > 1 && <Text style={styles.quantity}> ×{item.quantity}</Text>}
             </Text>
             {item.essential && !item.packed && (
-              <Chip compact style={styles.essentialChip} textStyle={styles.essentialChipText}>
-                essential
-              </Chip>
+              <Text style={styles.essentialBadge}>★</Text>
             )}
           </View>
         </TouchableOpacity>
@@ -179,8 +177,7 @@ const styles = StyleSheet.create({
   itemName: { ...Typography.body, color: Colors.onSurface, flex: 1 },
   itemNamePacked: { textDecorationLine: 'line-through', color: Colors.muted },
   quantity: { ...Typography.caption, color: Colors.muted },
-  essentialChip: { backgroundColor: '#fce8e6', height: 20 },
-  essentialChipText: { fontSize: 10, color: Colors.error },
+  essentialBadge: { fontSize: 14, color: Colors.premiumGold },
   empty: { alignItems: 'center', paddingVertical: Spacing.xxl },
   emptyText: { ...Typography.body, color: Colors.muted, marginBottom: Spacing.md },
 });

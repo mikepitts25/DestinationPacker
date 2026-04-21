@@ -211,6 +211,7 @@ Type=simple
 User=$USER
 WorkingDirectory=$APP_DIR/backend
 Environment=PATH=$VENV/bin:/usr/local/bin:/usr/bin:/bin
+ExecStartPre=$VENV/bin/alembic upgrade head
 ExecStart=$VENV/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
 Restart=on-failure
 RestartSec=5
