@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTrip } from '@/hooks/useTrips';
+import { useTrip, useDeleteTrip } from '@/hooks/useTrips';
 import { useGeneratePackingList } from '@/hooks/usePackingList';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import PackingScreen from './packing';
@@ -17,6 +17,27 @@ export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: trip, isLoading } = useTrip(id);
   const { mutate: generate, isPending: isGenerating } = useGeneratePackingList(id);
+  const { mutateAsync: deleteTrip, isPending: isDeleting } = useDeleteTrip();
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Trip',
+      `Are you sure you want to delete your trip to ${trip?.destination}? This will also remove the packing list and activities.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteTrip(id);
+              router.replace('/(tabs)');
+            } catch {}
+          },
+        },
+      ],
+    );
+  };
 
   useEffect(() => {
     // Auto-generate packing list when trip is first loaded
@@ -52,6 +73,9 @@ export default function TripDetailScreen() {
             {' · '}{trip.duration_days - 1} nights
           </Text>
         </View>
+        <TouchableOpacity onPress={handleDelete} disabled={isDeleting} style={styles.deleteBtn}>
+          <Text style={styles.deleteBtnText}>🗑️</Text>
+        </TouchableOpacity>
       </View>
 
       {isGenerating && (
@@ -91,7 +115,9 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   backBtn: { fontSize: 24, color: Colors.primary, marginRight: Spacing.sm },
-  headerInfo: { flex: 1 },
+  headerInfo: { flex: 1, marginRight: Spacing.sm },
+  deleteBtn: { padding: Spacing.xs },
+  deleteBtnText: { fontSize: 20 },
   destination: { ...Typography.h3, color: Colors.onSurface },
   dates: { ...Typography.caption, color: Colors.muted },
   generatingBanner: {

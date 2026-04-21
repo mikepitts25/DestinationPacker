@@ -1,8 +1,8 @@
-import { View, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text, FAB, ActivityIndicator, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useTrips } from '@/hooks/useTrips';
+import { useTrips, useDeleteTrip } from '@/hooks/useTrips';
 import { useAuthStore } from '@/stores/authStore';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import { FREE_TRIP_LIMIT } from '@/constants/config';
@@ -10,7 +10,23 @@ import type { Trip } from '@/types';
 
 export default function HomeScreen() {
   const { data: trips, isLoading } = useTrips();
+  const { mutateAsync: deleteTrip } = useDeleteTrip();
   const { isPremium } = useAuthStore();
+
+  const handleDeleteTrip = (trip: Trip) => {
+    Alert.alert(
+      'Delete Trip',
+      `Delete your trip to ${trip.destination}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteTrip(trip.id).catch(() => {}),
+        },
+      ],
+    );
+  };
 
   const upcomingTrips = trips?.filter(t => new Date(t.end_date) >= new Date()) ?? [];
   const pastTrips = trips?.filter(t => new Date(t.end_date) < new Date()) ?? [];
@@ -52,7 +68,7 @@ export default function HomeScreen() {
           </>
         }
         renderItem={({ item }) => (
-          <TripCard trip={item} />
+          <TripCard trip={item} onDelete={() => handleDeleteTrip(item)} />
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -65,7 +81,7 @@ export default function HomeScreen() {
             <>
               <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>Past Trips</Text>
               {pastTrips.map((trip) => (
-                <TripCard key={trip.id} trip={trip} past />
+                <TripCard key={trip.id} trip={trip} past onDelete={() => handleDeleteTrip(trip)} />
               ))}
             </>
           ) : null
@@ -84,7 +100,7 @@ export default function HomeScreen() {
   );
 }
 
-function TripCard({ trip, past }: { trip: Trip; past?: boolean }) {
+function TripCard({ trip, past, onDelete }: { trip: Trip; past?: boolean; onDelete: () => void }) {
   const nights = trip.duration_days - 1;
   const accommodationEmoji: Record<string, string> = {
     hotel: '🏨', hostel: '🏠', airbnb: '🏡', camping: '⛺',
@@ -98,9 +114,10 @@ function TripCard({ trip, past }: { trip: Trip; past?: boolean }) {
     <TouchableOpacity
       style={[styles.card, past && styles.pastCard]}
       onPress={() => router.push(`/trip/${trip.id}`)}
+      onLongPress={onDelete}
     >
       <View style={styles.cardHeader}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.destination}>{trip.destination}</Text>
           <Text style={styles.dates}>
             {new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
