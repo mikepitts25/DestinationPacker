@@ -73,6 +73,23 @@ async def update_me(
     return current_user
 
 
+@router.post("/me/subscription", response_model=UserResponse)
+async def update_subscription(
+    payload: SubscriptionUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update subscription tier. In production this would be handled by
+    RevenueCat webhooks; this endpoint enables dev/testing and will
+    later be locked behind webhook verification.
+    """
+    current_user.subscription = payload.subscription
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+
 @router.post("/subscription/webhook")
 async def revenuecat_webhook(
     payload: dict,

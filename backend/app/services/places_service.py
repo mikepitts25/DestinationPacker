@@ -24,8 +24,9 @@ async def autocomplete_destination(query: str) -> list[dict]:
         "addressdetails": 1,
         "limit": 8,
         "featuretype": "city",
+        "accept-language": "en",
     }
-    headers = {"User-Agent": USER_AGENT}
+    headers = {"User-Agent": USER_AGENT, "Accept-Language": "en"}
 
     async with httpx.AsyncClient(timeout=5.0) as client:
         try:
@@ -55,8 +56,9 @@ async def get_place_details(place_id: str) -> dict | None:
         "osm_ids": f"R{place_id},W{place_id},N{place_id}",
         "format": "jsonv2",
         "addressdetails": 1,
+        "accept-language": "en",
     }
-    headers = {"User-Agent": USER_AGENT}
+    headers = {"User-Agent": USER_AGENT, "Accept-Language": "en"}
 
     async with httpx.AsyncClient(timeout=5.0) as client:
         try:
