@@ -1,11 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTrip, useDeleteTrip } from '@/hooks/useTrips';
-import { useGeneratePackingList } from '@/hooks/usePackingList';
+import { usePackingList, useGeneratePackingList } from '@/hooks/usePackingList';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import PackingScreen from './packing';
 import ActivitiesScreen from './activities';
@@ -16,8 +16,10 @@ const Tab = createMaterialTopTabNavigator();
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: trip, isLoading } = useTrip(id);
+  const { data: packingList } = usePackingList(id);
   const { mutate: generate, isPending: isGenerating } = useGeneratePackingList(id);
   const { mutateAsync: deleteTrip, isPending: isDeleting } = useDeleteTrip();
+  const hasGenerated = useRef(false);
 
   const handleDelete = () => {
     Alert.alert(
@@ -40,11 +42,14 @@ export default function TripDetailScreen() {
   };
 
   useEffect(() => {
-    // Auto-generate packing list when trip is first loaded
-    if (trip && id) {
-      generate();
+    if (trip && id && !hasGenerated.current) {
+      const itemCount = packingList?.items?.length ?? 0;
+      if (itemCount === 0) {
+        hasGenerated.current = true;
+        generate();
+      }
     }
-  }, [trip?.id]);
+  }, [trip?.id, packingList]);
 
   if (isLoading || !trip) {
     return (
@@ -55,17 +60,14 @@ export default function TripDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Trip Header */}
       <View style={styles.header}>
-        <Text
-          style={styles.backBtn}
-          onPress={() => router.back()}
-        >
-          ←
-        </Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Text style={styles.backBtnText}>{'←'}</Text>
+        </TouchableOpacity>
         <View style={styles.headerInfo}>
-          <Text style={styles.destination}>{trip.destination}</Text>
+          <Text style={styles.destination} numberOfLines={1}>{trip.destination}</Text>
           <Text style={styles.dates}>
             {new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             {' – '}
@@ -73,7 +75,12 @@ export default function TripDetailScreen() {
             {' · '}{trip.duration_days - 1} nights
           </Text>
         </View>
-        <TouchableOpacity onPress={handleDelete} disabled={isDeleting} style={styles.deleteBtn}>
+        <TouchableOpacity
+          onPress={handleDelete}
+          disabled={isDeleting}
+          style={styles.deleteBtn}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
           <Text style={styles.deleteBtnText}>🗑️</Text>
         </TouchableOpacity>
       </View>
@@ -109,15 +116,22 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
     backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  backBtn: { fontSize: 24, color: Colors.primary, marginRight: Spacing.sm },
+  backBtn: {
+    padding: Spacing.sm,
+    marginRight: Spacing.xs,
+  },
+  backBtnText: { fontSize: 24, color: Colors.primary },
   headerInfo: { flex: 1, marginRight: Spacing.sm },
-  deleteBtn: { padding: Spacing.xs },
-  deleteBtnText: { fontSize: 20 },
+  deleteBtn: {
+    padding: Spacing.sm,
+  },
+  deleteBtnText: { fontSize: 22 },
   destination: { ...Typography.h3, color: Colors.onSurface },
   dates: { ...Typography.caption, color: Colors.muted },
   generatingBanner: {

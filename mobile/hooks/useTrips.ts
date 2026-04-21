@@ -44,8 +44,12 @@ export function useDeleteTrip() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (tripId: string) => tripsApi.delete(tripId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: TRIPS_KEY });
+    onSuccess: (_data, tripId) => {
+      queryClient.removeQueries({ queryKey: [...TRIPS_KEY, tripId] });
+      queryClient.setQueryData(TRIPS_KEY, (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.filter((t: any) => t.id !== tripId);
+      });
     },
   });
 }
