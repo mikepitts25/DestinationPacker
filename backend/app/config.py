@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1:8b"
     openrouter_api_key: str = ""  # optional — set to use free OpenRouter models
-    openrouter_model: str = "meta-llama/llama-3.1-8b-instruct:free"
+    openrouter_models: str = "google/gemma-4-26b-a4b-it:free,minimax/minimax-m2.5:free,meta-llama/llama-3.3-70b-instruct:free"
     anthropic_api_key: str = ""  # optional — leave empty to use Ollama only
 
     # RevenueCat

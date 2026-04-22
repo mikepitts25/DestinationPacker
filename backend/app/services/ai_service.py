@@ -46,32 +46,37 @@ async def _ollama_generate(prompt: str, max_tokens: int = 2048) -> str | None:
 
 
 async def _openrouter_generate(prompt: str, max_tokens: int = 2048) -> str | None:
-    """Send a prompt to OpenRouter (free models). OpenAI-compatible API."""
+    """Try each configured OpenRouter model in order until one succeeds."""
     if not settings.use_openrouter:
         return None
 
+    models = [m.strip() for m in settings.openrouter_models.split(",") if m.strip()]
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {settings.openrouter_api_key}",
         "Content-Type": "application/json",
     }
-    payload = {
-        "model": settings.openrouter_model,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": max_tokens,
-        "temperature": 0.7,
-    }
+
     async with httpx.AsyncClient(timeout=90.0) as client:
-        try:
-            resp = await client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
-            content = data["choices"][0]["message"]["content"]
-            logger.info("OpenRouter response received (model: %s)", settings.openrouter_model)
-            return content.strip()
-        except (httpx.HTTPError, KeyError, IndexError) as e:
-            logger.warning("OpenRouter request failed: %s", e)
-            return None
+        for model in models:
+            payload = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens,
+                "temperature": 0.7,
+            }
+            try:
+                resp = await client.post(url, json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+                content = data["choices"][0]["message"]["content"]
+                logger.info("OpenRouter response received (model: %s)", model)
+                return content.strip()
+            except (httpx.HTTPError, KeyError, IndexError) as e:
+                logger.warning("OpenRouter model %s failed: %s", model, e)
+                continue
+
+    return None
 
 
 async def _claude_generate(prompt: str, max_tokens: int = 2048) -> str | None:
