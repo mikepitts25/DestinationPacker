@@ -168,6 +168,9 @@ start_api() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 
+    info "Running database migrations..."
+    alembic upgrade head
+
     if [[ "${1:-}" == "--dev" ]]; then
         uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     else

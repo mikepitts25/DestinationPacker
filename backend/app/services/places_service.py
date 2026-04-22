@@ -97,20 +97,22 @@ async def get_place_details(place_id: str) -> dict | None:
 async def get_nearby_activities(lat: float, lon: float, destination: str) -> list[dict]:
     """
     Fetch nearby points of interest using the Overpass API (OpenStreetMap).
-    Queries for tourism, leisure, and amenity nodes near the coordinates.
+    Uses nwr (node/way/relation) to catch landmarks mapped as buildings or areas.
     """
-    # Overpass QL query: find tourism, leisure, and notable amenities within 10km
     query = f"""
-    [out:json][timeout:10];
+    [out:json][timeout:15];
     (
-      node["tourism"~"attraction|museum|artwork|viewpoint|zoo|theme_park"](around:10000,{lat},{lon});
-      node["leisure"~"park|garden|beach_resort|nature_reserve|sports_centre"](around:10000,{lat},{lon});
-      node["amenity"~"restaurant|nightclub|theatre|cinema"](around:8000,{lat},{lon});
+      nwr["tourism"~"attraction|museum|gallery|artwork|viewpoint|zoo|theme_park|aquarium"](around:12000,{lat},{lon});
+      nwr["leisure"~"park|garden|beach_resort|nature_reserve|sports_centre|water_park|stadium"](around:12000,{lat},{lon});
+      nwr["amenity"~"theatre|cinema|marketplace|place_of_worship"](around:10000,{lat},{lon});
+      nwr["historic"~"castle|monument|memorial|ruins|archaeological_site|fort"](around:12000,{lat},{lon});
+      nwr["building"="cathedral"](around:12000,{lat},{lon});
+      nwr["natural"~"beach|cave_entrance|hot_spring|peak"](around:15000,{lat},{lon});
     );
-    out body 20;
+    out center 40;
     """
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
+    async with httpx.AsyncClient(timeout=20.0) as client:
         try:
             resp = await client.post(OVERPASS_URL, data={"data": query})
             resp.raise_for_status()
@@ -127,13 +129,21 @@ async def get_nearby_activities(lat: float, lon: float, destination: str) -> lis
 
     for el in elements:
         tags = el.get("tags", {})
-        name = tags.get("name", "")
+        name = tags.get("name:en") or tags.get("name", "")
         if not name or name.lower() in seen_names:
             continue
         seen_names.add(name.lower())
 
         activity_type = _classify_osm_tags(tags)
-        description = tags.get("description", tags.get("tourism", tags.get("leisure", tags.get("amenity", ""))))
+        description = (
+            tags.get("description:en")
+            or tags.get("description")
+            or tags.get("tourism")
+            or tags.get("historic")
+            or tags.get("leisure")
+            or tags.get("amenity")
+            or ""
+        )
 
         all_activities.append({
             "activity_name": name,
@@ -141,7 +151,7 @@ async def get_nearby_activities(lat: float, lon: float, destination: str) -> lis
             "description": description.capitalize() if description else f"Explore {name}",
             "source": "openstreetmap",
             "external_id": f"osm:{el.get('id', '')}",
-            "photo_url": None,  # OSM doesn't provide photos directly
+            "photo_url": None,
         })
 
     # Append local souvenir suggestions based on destination
@@ -156,27 +166,35 @@ def _classify_osm_tags(tags: dict) -> str:
     tourism = tags.get("tourism", "")
     leisure = tags.get("leisure", "")
     amenity = tags.get("amenity", "")
+    historic = tags.get("historic", "")
+    natural = tags.get("natural", "")
 
-    if tourism in ("museum", "artwork"):
+    if historic:
+        return "cultural"
+    if tourism in ("museum", "gallery", "artwork"):
         return "cultural"
     if tourism in ("attraction", "viewpoint"):
         return "cultural"
-    if tourism in ("zoo", "theme_park"):
+    if tourism in ("zoo", "theme_park", "aquarium"):
         return "outdoor"
     if leisure in ("park", "garden", "nature_reserve"):
         return "outdoor"
-    if leisure == "beach_resort":
+    if leisure in ("beach_resort",) or natural == "beach":
         return "beach"
-    if leisure == "sports_centre":
+    if leisure in ("sports_centre", "stadium", "water_park"):
         return "sports"
-    if amenity == "restaurant":
-        return "dining"
-    if amenity == "nightclub":
-        return "nightlife"
+    if natural in ("hot_spring",):
+        return "wellness"
+    if natural in ("cave_entrance", "peak"):
+        return "outdoor"
+    if amenity == "marketplace":
+        return "shopping"
+    if amenity == "place_of_worship" or tags.get("building") == "cathedral":
+        return "cultural"
     if amenity in ("theatre", "cinema"):
         return "cultural"
 
-    return "cultural"  # default
+    return "cultural"
 
 
 def _get_fallback_activities(destination: str) -> list[dict]:
