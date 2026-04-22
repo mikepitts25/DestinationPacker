@@ -1,14 +1,19 @@
 """
 AI service for premium packing list generation and activity suggestions.
 
-Primary backend: Ollama (free, self-hosted LLM — e.g. Llama 3.1, Mistral)
-Optional fallback: Claude API (if ANTHROPIC_API_KEY is set)
+Provider chain (tries in order, uses first that succeeds):
+1. OpenRouter free models (if OPENROUTER_API_KEY is set)
+2. Ollama (free, self-hosted LLM)
+3. Claude API (if ANTHROPIC_API_KEY is set)
 """
+import logging
 import json
 import httpx
 from app.config import settings
 from app.models.trip import Trip
 from app.services.rule_engine import PackingRecommendation
+
+logger = logging.getLogger(__name__)
 
 
 def _extract_json(text: str) -> str:
@@ -40,6 +45,35 @@ async def _ollama_generate(prompt: str, max_tokens: int = 2048) -> str | None:
             return None
 
 
+async def _openrouter_generate(prompt: str, max_tokens: int = 2048) -> str | None:
+    """Send a prompt to OpenRouter (free models). OpenAI-compatible API."""
+    if not settings.use_openrouter:
+        return None
+
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {settings.openrouter_api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": settings.openrouter_model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+        "temperature": 0.7,
+    }
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        try:
+            resp = await client.post(url, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            content = data["choices"][0]["message"]["content"]
+            logger.info("OpenRouter response received (model: %s)", settings.openrouter_model)
+            return content.strip()
+        except (httpx.HTTPError, KeyError, IndexError) as e:
+            logger.warning("OpenRouter request failed: %s", e)
+            return None
+
+
 async def _claude_generate(prompt: str, max_tokens: int = 2048) -> str | None:
     """Send a prompt to Claude API (only if key is configured)."""
     if not settings.use_claude:
@@ -57,9 +91,12 @@ async def _claude_generate(prompt: str, max_tokens: int = 2048) -> str | None:
 
 async def _generate(prompt: str, max_tokens: int = 2048) -> str | None:
     """
-    Try Ollama first (free), fall back to Claude if Ollama is unavailable
-    and a Claude API key is configured.
+    Try providers in order: OpenRouter (free models) -> Ollama (local) -> Claude (paid).
+    Returns the first successful response.
     """
+    result = await _openrouter_generate(prompt, max_tokens)
+    if result:
+        return result
     result = await _ollama_generate(prompt, max_tokens)
     if result:
         return result

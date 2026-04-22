@@ -13,9 +13,11 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
 
-    # AI — Ollama (primary, free self-hosted) or Claude API (optional fallback)
+    # AI — Ollama (primary, free self-hosted), OpenRouter (free models), or Claude API (optional fallback)
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1:8b"
+    openrouter_api_key: str = ""  # optional — set to use free OpenRouter models
+    openrouter_model: str = "meta-llama/llama-3.1-8b-instruct:free"
     anthropic_api_key: str = ""  # optional — leave empty to use Ollama only
 
     # RevenueCat
@@ -30,6 +32,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @property
+    def use_openrouter(self) -> bool:
+        return bool(self.openrouter_api_key)
 
     @property
     def use_claude(self) -> bool:
