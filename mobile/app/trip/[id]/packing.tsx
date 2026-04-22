@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Checkbox, Chip, FAB, Badge, ActivityIndicator, Button } from 'react-native-paper';
+import { Text, Checkbox, FAB, Badge, ActivityIndicator, Button } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
 import { usePackingList, useToggleItemPacked, useGeneratePackingList } from '@/hooks/usePackingList';
 import { Colors, Spacing, Typography } from '@/constants/theme';

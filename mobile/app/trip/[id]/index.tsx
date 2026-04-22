@@ -1,11 +1,9 @@
-import { useEffect, useRef } from 'react';
 import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTrip, useDeleteTrip } from '@/hooks/useTrips';
-import { usePackingList, useGeneratePackingList } from '@/hooks/usePackingList';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import PackingScreen from './packing';
 import ActivitiesScreen from './activities';
@@ -16,10 +14,7 @@ const Tab = createMaterialTopTabNavigator();
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: trip, isLoading } = useTrip(id);
-  const { data: packingList } = usePackingList(id);
-  const { mutate: generate, isPending: isGenerating } = useGeneratePackingList(id);
   const { mutateAsync: deleteTrip, isPending: isDeleting } = useDeleteTrip();
-  const hasGenerated = useRef(false);
 
   const handleDelete = () => {
     Alert.alert(
@@ -40,16 +35,6 @@ export default function TripDetailScreen() {
       ],
     );
   };
-
-  useEffect(() => {
-    if (trip && id && !hasGenerated.current) {
-      const itemCount = packingList?.items?.length ?? 0;
-      if (itemCount === 0) {
-        hasGenerated.current = true;
-        generate();
-      }
-    }
-  }, [trip?.id, packingList]);
 
   if (isLoading || !trip) {
     return (
@@ -84,13 +69,6 @@ export default function TripDetailScreen() {
           <Text style={styles.deleteBtnText}>🗑️</Text>
         </TouchableOpacity>
       </View>
-
-      {isGenerating && (
-        <View style={styles.generatingBanner}>
-          <ActivityIndicator size="small" color={Colors.primary} />
-          <Text style={styles.generatingText}>Generating your packing list...</Text>
-        </View>
-      )}
 
       {/* Tab navigator */}
       <Tab.Navigator
@@ -134,13 +112,4 @@ const styles = StyleSheet.create({
   deleteBtnText: { fontSize: 22 },
   destination: { ...Typography.h3, color: Colors.onSurface },
   dates: { ...Typography.caption, color: Colors.muted },
-  generatingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#e8f0fe',
-    padding: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  generatingText: { ...Typography.label, color: Colors.primary },
 });
