@@ -119,6 +119,16 @@ export default function LoginScreen() {
               ? "Don't have an account? Sign up"
               : 'Already have an account? Sign in'}
           </Button>
+
+          {mode === 'login' && (
+            <Button
+              mode="text"
+              onPress={() => router.push('/(auth)/forgot-password')}
+              textColor={Colors.muted}
+            >
+              Forgot password?
+            </Button>
+          )}
         </View>
 
         <Text style={styles.terms}>

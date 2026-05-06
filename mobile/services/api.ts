@@ -87,6 +87,12 @@ export const usersApi = {
 
   updateSubscription: (subscription: 'free' | 'premium') =>
     request<User>('POST', '/users/me/subscription', { subscription }),
+
+  requestPasswordReset: (email: string) =>
+    request<void>('POST', '/users/reset-password/request', { email }),
+
+  confirmPasswordReset: (email: string, code: string, new_password: string) =>
+    request<TokenResponse>('POST', '/users/reset-password/confirm', { email, code, new_password }),
 };
 
 // ─── Trips ───────────────────────────────────────────────────────────────────
