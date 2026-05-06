@@ -16,9 +16,16 @@ class Settings(BaseSettings):
     # AI — Ollama (primary, free self-hosted), OpenRouter (free models), or Claude API (optional fallback)
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1:8b"
-    openrouter_api_key: str = ""  # optional — set to use free OpenRouter models
+    openrouter_api_key: str = ""
     openrouter_models: str = "google/gemma-4-26b-a4b-it:free,minimax/minimax-m2.5:free,meta-llama/llama-3.3-70b-instruct:free"
-    anthropic_api_key: str = ""  # optional — leave empty to use Ollama only
+    anthropic_api_key: str = ""
+
+    # Email (SMTP) — for password reset codes
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""  # defaults to smtp_user if empty
 
     # RevenueCat
     revenuecat_webhook_secret: str = ""
@@ -34,12 +41,15 @@ class Settings(BaseSettings):
         return self.environment == "production"
 
     @property
+    def email_enabled(self) -> bool:
+        return bool(self.smtp_host and self.smtp_user and self.smtp_password)
+
+    @property
     def use_openrouter(self) -> bool:
         return bool(self.openrouter_api_key)
 
     @property
     def use_claude(self) -> bool:
-        """Use Claude API only if a key is explicitly configured."""
         return bool(self.anthropic_api_key)
 
 
