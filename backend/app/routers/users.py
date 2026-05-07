@@ -4,10 +4,12 @@ import logging
 from email.mime.text import MIMEText
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel, EmailStr
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.config import settings
 from app.db.database import get_db
@@ -20,6 +22,7 @@ from app.middleware.auth import (
 )
 
 logger = logging.getLogger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 
 RESET_CODE_TTL = 15 * 60  # 15 minutes
 
@@ -55,7 +58,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register_user(payload: UserRegister, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def register_user(request: Request, payload: UserRegister, db: AsyncSession = Depends(get_db)):
     """Register a new user with email + password."""
     result = await db.execute(select(User).where(User.email == payload.email))
     if result.scalar_one_or_none():
@@ -78,7 +82,8 @@ async def register_user(payload: UserRegister, db: AsyncSession = Depends(get_db
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login_user(payload: UserLogin, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login_user(request: Request, payload: UserLogin, db: AsyncSession = Depends(get_db)):
     """Authenticate with email + password, returns JWT."""
     result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
@@ -131,7 +136,8 @@ async def update_subscription(
 
 
 @router.post("/reset-password/request", status_code=status.HTTP_204_NO_CONTENT)
-async def request_password_reset(payload: PasswordResetRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("3/minute")
+async def request_password_reset(request: Request, payload: PasswordResetRequest, db: AsyncSession = Depends(get_db)):
     """Generate a 6-digit reset code and email it (or log it in dev)."""
     result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()

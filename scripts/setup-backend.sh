@@ -9,10 +9,16 @@ set -euo pipefail
 # special characters like $, !, #, etc.
 DB_PASSWORD='PLACEHOLDER_db_password'          # Strong password for PostgreSQL
 SECRET_KEY='PLACEHOLDER_secret_key_64chars'    # Run: openssl rand -hex 32
-ANTHROPIC_API_KEY=''                           # Optional: leave empty to use Ollama only
-REPO_URL='https://github.com/mikepitts25/destinationpacker.git'
+DOMAIN='PLACEHOLDER_domain'                    # e.g. api.yourdomain.com — used for nginx + TLS
+OPENROUTER_API_KEY=''                          # Optional: free AI models via openrouter.ai
+ANTHROPIC_API_KEY=''                           # Optional: Claude AI fallback
+SMTP_HOST=''                                   # Optional: e.g. smtp.gmail.com
+SMTP_USER=''                                   # Optional: your email address
+SMTP_PASSWORD=''                               # Optional: app password
+REPO_URL='https://github.com/mikepitts25/DestinationPacker.git'
 APP_DIR="$HOME/DestinationPacker"
 OLLAMA_MODEL='llama3.1:8b'
+SETUP_NGINX=true                               # Set false to skip nginx/TLS setup
 # ------------------------------------------------------------------------------
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
@@ -22,7 +28,9 @@ warn()    { echo -e "${YELLOW}[WARN]${NC} $*"; }
 die()     { echo -e "${RED}[ERR]${NC}  $*" >&2; exit 1; }
 
 # Guard against unedited placeholders
-if [[ "$DB_PASSWORD" == "PLACEHOLDER_db_password" || "$SECRET_KEY" == "PLACEHOLDER_secret_key_64chars" ]]; then
+if [[ "$DB_PASSWORD" == "PLACEHOLDER_db_password" || \
+      "$SECRET_KEY" == "PLACEHOLDER_secret_key_64chars" || \
+      "$DOMAIN" == "PLACEHOLDER_domain" ]]; then
   die "Edit the CONFIGURATION section at the top of this script before running."
 fi
 
@@ -160,7 +168,23 @@ else
     fi
     printf '\n'
     printf 'ENVIRONMENT=production\n'
+    printf 'ALLOWED_ORIGINS=https://%s\n' "$DOMAIN"
+    printf '\n'
+    if [[ -n "$OPENROUTER_API_KEY" ]]; then
+      printf 'OPENROUTER_API_KEY=%s\n' "$OPENROUTER_API_KEY"
+      printf 'OPENROUTER_MODELS=google/gemma-4-26b-a4b-it:free,minimax/minimax-m2.5:free,meta-llama/llama-3.3-70b-instruct:free\n'
+    fi
+    if [[ -n "$ANTHROPIC_API_KEY" ]]; then
+      printf 'ANTHROPIC_API_KEY=%s\n' "$ANTHROPIC_API_KEY"
+    fi
+    if [[ -n "$SMTP_HOST" ]]; then
+      printf 'SMTP_HOST=%s\n' "$SMTP_HOST"
+      printf 'SMTP_PORT=587\n'
+      printf 'SMTP_USER=%s\n' "$SMTP_USER"
+      printf 'SMTP_PASSWORD=%s\n' "$SMTP_PASSWORD"
+    fi
   } > "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
   success ".env created at $ENV_FILE"
 fi
 
@@ -194,7 +218,47 @@ cd "$APP_DIR/backend"
 alembic upgrade head
 success "Database migrations applied"
 
-# -- 10. Systemd service for the API -------------------------------------------
+# -- 10. Nginx + TLS (Let's Encrypt) ------------------------------------------
+if [[ "$SETUP_NGINX" == "true" ]]; then
+  install_pkg nginx
+  install_pkg certbot
+  if ! dpkg -s python3-certbot-nginx &>/dev/null; then
+    info "Installing certbot nginx plugin..."
+    sudo apt-get install -y -qq python3-certbot-nginx
+  fi
+
+  NGINX_CONF="/etc/nginx/sites-available/destinationpacker"
+  if [[ ! -f "$NGINX_CONF" ]]; then
+    info "Installing nginx config..."
+    sudo cp "$APP_DIR/nginx/destinationpacker.conf" "$NGINX_CONF"
+    sudo sed -i "s/api.yourdomain.com/${DOMAIN}/g" "$NGINX_CONF"
+    sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/destinationpacker
+    sudo rm -f /etc/nginx/sites-enabled/default
+    sudo nginx -t && sudo systemctl reload nginx
+    success "Nginx configured for $DOMAIN"
+  else
+    success "Nginx config already exists"
+  fi
+
+  # Obtain TLS certificate if not already present
+  if [[ ! -d "/etc/letsencrypt/live/$DOMAIN" ]]; then
+    info "Obtaining TLS certificate for $DOMAIN..."
+    info "(Make sure $DOMAIN points to this server's IP before continuing)"
+    sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos \
+      --email "admin@${DOMAIN#*.}" --redirect || \
+      warn "Certbot failed — run manually: sudo certbot --nginx -d $DOMAIN"
+  else
+    success "TLS certificate already exists for $DOMAIN"
+  fi
+
+  # Auto-renew via cron
+  if ! crontab -l 2>/dev/null | grep -q certbot; then
+    (crontab -l 2>/dev/null; echo "0 3 * * * /usr/bin/certbot renew --quiet && systemctl reload nginx") | crontab -
+    success "Certbot auto-renewal cron added"
+  fi
+fi
+
+# -- 12. Systemd service for the API -------------------------------------------
 SERVICE_FILE="/etc/systemd/system/destinationpacker.service"
 if [[ -f "$SERVICE_FILE" ]]; then
   success "Systemd service already exists"
@@ -241,15 +305,25 @@ echo "=============================================="
 echo "   Setup complete!"
 echo "=============================================="
 echo ""
-echo "  API running at:  http://${SERVER_IP}:8000"
-echo "  Health check:    curl http://${SERVER_IP}:8000/health"
-echo "  API docs:        http://${SERVER_IP}:8000/docs"
+if [[ "$SETUP_NGINX" == "true" ]]; then
+  echo "  API running at:  https://${DOMAIN}"
+  echo "  Health check:    curl https://${DOMAIN}/health"
+else
+  echo "  API running at:  http://${SERVER_IP}:8000"
+  echo "  Health check:    curl http://${SERVER_IP}:8000/health"
+  echo "  API docs:        http://${SERVER_IP}:8000/docs"
+fi
 echo ""
 echo "  Useful commands:"
 echo "    sudo systemctl status destinationpacker"
 echo "    sudo journalctl -u destinationpacker -f"
 echo "    docker compose -f $COMPOSE_FILE logs -f"
+echo "    sudo nginx -t && sudo systemctl reload nginx"
 echo ""
 echo "  Next: update mobile/constants/config.ts with:"
-echo "    API_URL: 'http://${SERVER_IP}:8000/api'"
+if [[ "$SETUP_NGINX" == "true" ]]; then
+  echo "    API_URL: 'https://${DOMAIN}/api'"
+else
+  echo "    API_URL: 'http://${SERVER_IP}:8000/api'"
+fi
 echo ""

@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     # App
     environment: str = "development"
+    allowed_origins: str = "https://destinationpacker.app"  # comma-separated in production
 
     # Free tier limits
     free_trip_limit: int = 3
