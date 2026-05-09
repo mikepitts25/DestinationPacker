@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -52,7 +54,7 @@ async def create_trip(
 
 @router.get("/{trip_id}", response_model=TripResponse)
 async def get_trip(
-    trip_id: str,
+    trip_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -62,7 +64,7 @@ async def get_trip(
 
 @router.patch("/{trip_id}", response_model=TripResponse)
 async def update_trip(
-    trip_id: str,
+    trip_id: uuid.UUID,
     payload: TripUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -78,7 +80,7 @@ async def update_trip(
 
 @router.delete("/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_trip(
-    trip_id: str,
+    trip_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -87,7 +89,7 @@ async def delete_trip(
     await db.commit()
 
 
-async def _get_trip_or_404(trip_id: str, user_id, db: AsyncSession) -> Trip:
+async def _get_trip_or_404(trip_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession) -> Trip:
     result = await db.execute(
         select(Trip).where(Trip.id == trip_id, Trip.user_id == user_id)
     )

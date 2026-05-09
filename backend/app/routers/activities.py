@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/trips/{trip_id}/activities", tags=["activities"])
 
 
-async def _get_trip_or_404(trip_id: str, user_id, db: AsyncSession) -> Trip:
+async def _get_trip_or_404(trip_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession) -> Trip:
     result = await db.execute(
         select(Trip).where(Trip.id == trip_id, Trip.user_id == user_id)
     )
@@ -32,7 +33,7 @@ async def _get_trip_or_404(trip_id: str, user_id, db: AsyncSession) -> Trip:
 
 @router.get("/", response_model=list[ActivityResponse])
 async def list_activities(
-    trip_id: str,
+    trip_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -47,7 +48,7 @@ async def list_activities(
 
 @router.post("/fetch", response_model=list[ActivityResponse])
 async def fetch_and_store_activities(
-    trip_id: str,
+    trip_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -134,8 +135,8 @@ async def fetch_and_store_activities(
 
 @router.patch("/{activity_id}/toggle", response_model=ActivityResponse)
 async def toggle_activity(
-    trip_id: str,
-    activity_id: str,
+    trip_id: uuid.UUID,
+    activity_id: uuid.UUID,
     payload: ActivityToggle,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -220,7 +221,7 @@ async def toggle_activity(
 
 @router.post("/", response_model=ActivityResponse, status_code=status.HTTP_201_CREATED)
 async def add_custom_activity(
-    trip_id: str,
+    trip_id: uuid.UUID,
     payload: ActivityAdd,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

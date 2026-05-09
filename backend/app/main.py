@@ -24,6 +24,25 @@ logger = logging.getLogger(__name__)
 # ── Rate limiter (shared across routers) ──────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 
+DEFAULT_SECRET_KEYS = {
+    "",
+    "dev_secret_key_change_in_production",
+    "dev_secret_change_in_production",
+    "change_me_in_production",
+    "PLACEHOLDER_secret_key_64chars",
+}
+
+
+def _validate_production_safety(config=settings) -> None:
+    if not config.is_production:
+        return
+
+    if config.secret_key in DEFAULT_SECRET_KEYS or config.secret_key.startswith("PLACEHOLDER_"):
+        raise RuntimeError("SECRET_KEY must be changed from the default before running in production.")
+
+    if "packer_secret" in config.database_url:
+        logger.warning("DATABASE_URL appears to use the default dev password — change this in production.")
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -40,12 +59,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Production safety checks
-    if settings.is_production:
-        if settings.secret_key == "dev_secret_key_change_in_production":
-            raise RuntimeError("SECRET_KEY must be changed from the default before running in production.")
-        if "packer_secret" in settings.database_url:
-            logger.warning("DATABASE_URL appears to use the default dev password — change this in production.")
+    _validate_production_safety(settings)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

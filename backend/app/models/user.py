@@ -1,11 +1,15 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import String, DateTime, Enum as SAEnum
+from datetime import datetime, timezone
+from sqlalchemy import String, DateTime, Enum as SAEnum, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 import enum
 
 from app.db.database import Base
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class SubscriptionTier(str, enum.Enum):
@@ -23,8 +27,8 @@ class User(Base):
     subscription: Mapped[SubscriptionTier] = mapped_column(
         SAEnum(SubscriptionTier), default=SubscriptionTier.free
     )
-    preferences: Mapped[dict] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    preferences: Mapped[dict] = mapped_column(JSON().with_variant(JSONB, "postgresql"), default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utc_now)
 
     trips: Mapped[list["Trip"]] = relationship("Trip", back_populates="user", cascade="all, delete-orphan")  # noqa: F821
     shared_trips: Mapped[list["TripShare"]] = relationship("TripShare", foreign_keys="TripShare.shared_with", back_populates="shared_user")  # noqa: F821

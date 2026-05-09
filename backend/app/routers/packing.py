@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -18,7 +20,7 @@ from app.services.weather_service import get_forecast
 router = APIRouter(prefix="/trips/{trip_id}/packing", tags=["packing"])
 
 
-async def _get_trip_or_404(trip_id: str, user_id, db: AsyncSession) -> Trip:
+async def _get_trip_or_404(trip_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession) -> Trip:
     result = await db.execute(
         select(Trip).where(Trip.id == trip_id, Trip.user_id == user_id)
     )
@@ -30,7 +32,7 @@ async def _get_trip_or_404(trip_id: str, user_id, db: AsyncSession) -> Trip:
 
 @router.get("/", response_model=PackingListResponse)
 async def get_packing_list(
-    trip_id: str,
+    trip_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -55,7 +57,7 @@ async def get_packing_list(
 
 @router.post("/generate", response_model=PackingListResponse)
 async def generate_list(
-    trip_id: str,
+    trip_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -153,8 +155,8 @@ async def generate_list(
 
 @router.patch("/{item_id}", response_model=PackingItemResponse)
 async def update_item(
-    trip_id: str,
-    item_id: str,
+    trip_id: uuid.UUID,
+    item_id: uuid.UUID,
     payload: PackingItemUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -179,7 +181,7 @@ async def update_item(
 
 @router.post("/", response_model=PackingItemResponse, status_code=status.HTTP_201_CREATED)
 async def add_item(
-    trip_id: str,
+    trip_id: uuid.UUID,
     payload: PackingItemCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -201,8 +203,8 @@ async def add_item(
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_item(
-    trip_id: str,
-    item_id: str,
+    trip_id: uuid.UUID,
+    item_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

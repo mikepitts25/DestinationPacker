@@ -102,7 +102,11 @@ The only thing you might want to change is:
 
 ```bash
 # Backend
-cd backend && pip install -r requirements.txt && pytest -v
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+pytest -v
 
 # Mobile
 cd mobile && npm test

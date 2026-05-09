@@ -53,7 +53,7 @@ install_pkg() {
   fi
 }
 
-for pkg in curl wget git build-essential ca-certificates gnupg lsb-release; do
+for pkg in curl wget git build-essential ca-certificates gnupg lsb-release software-properties-common; do
   install_pkg "$pkg"
 done
 
@@ -64,12 +64,11 @@ else
   info "Adding deadsnakes PPA for Python 3.12..."
   sudo add-apt-repository -y ppa:deadsnakes/ppa
   sudo apt-get update -qq
-  sudo apt-get install -y -qq python3.12 python3.12-venv python3.12-dev
+  sudo apt-get install -y -qq python3.12
 fi
 
-if ! command -v pip3 &>/dev/null; then
-  sudo apt-get install -y -qq python3-pip
-fi
+install_pkg python3.12-venv
+install_pkg python3.12-dev
 
 # -- 3. Docker -----------------------------------------------------------------
 if command -v docker &>/dev/null; then
@@ -141,10 +140,9 @@ else
   python3.12 -m venv "$VENV"
 fi
 
-source "$VENV/bin/activate"
 info "Installing Python dependencies..."
-pip install --upgrade pip -q
-pip install -r "$APP_DIR/backend/requirements.txt" -q
+"$VENV/bin/python" -m pip install --upgrade pip -q
+"$VENV/bin/python" -m pip install -r "$APP_DIR/backend/requirements.txt" -q
 success "Python dependencies installed"
 
 # -- 7. .env file --------------------------------------------------------------
@@ -215,40 +213,66 @@ done
 # -- 9. Alembic migrations -----------------------------------------------------
 info "Running database migrations..."
 cd "$APP_DIR/backend"
-alembic upgrade head
+"$VENV/bin/alembic" upgrade head
 success "Database migrations applied"
 
 # -- 10. Nginx + TLS (Let's Encrypt) ------------------------------------------
 if [[ "$SETUP_NGINX" == "true" ]]; then
   install_pkg nginx
   install_pkg certbot
-  if ! dpkg -s python3-certbot-nginx &>/dev/null; then
-    info "Installing certbot nginx plugin..."
-    sudo apt-get install -y -qq python3-certbot-nginx
-  fi
+  sudo mkdir -p /var/www/certbot
 
   NGINX_CONF="/etc/nginx/sites-available/destinationpacker"
-  if [[ ! -f "$NGINX_CONF" ]]; then
-    info "Installing nginx config..."
+
+  install_bootstrap_nginx_conf() {
+    info "Installing temporary HTTP nginx config for certificate issuance..."
+    sudo tee "$NGINX_CONF" > /dev/null <<EOF
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $DOMAIN;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 200 "DestinationPacker certificate bootstrap\n";
+        add_header Content-Type text/plain;
+    }
+}
+EOF
+    sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/destinationpacker
+    sudo rm -f /etc/nginx/sites-enabled/default
+    sudo nginx -t && sudo systemctl reload nginx
+  }
+
+  install_final_nginx_conf() {
+    info "Installing final HTTPS nginx config..."
     sudo cp "$APP_DIR/nginx/destinationpacker.conf" "$NGINX_CONF"
     sudo sed -i "s/api.yourdomain.com/${DOMAIN}/g" "$NGINX_CONF"
     sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/destinationpacker
     sudo rm -f /etc/nginx/sites-enabled/default
     sudo nginx -t && sudo systemctl reload nginx
     success "Nginx configured for $DOMAIN"
-  else
-    success "Nginx config already exists"
-  fi
+  }
 
   # Obtain TLS certificate if not already present
   if [[ ! -d "/etc/letsencrypt/live/$DOMAIN" ]]; then
     info "Obtaining TLS certificate for $DOMAIN..."
     info "(Make sure $DOMAIN points to this server's IP before continuing)"
-    sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos \
-      --email "admin@${DOMAIN#*.}" --redirect || \
-      warn "Certbot failed — run manually: sudo certbot --nginx -d $DOMAIN"
+    install_bootstrap_nginx_conf
+    sudo certbot certonly --webroot -w /var/www/certbot -d "$DOMAIN" \
+      --non-interactive --agree-tos --email "admin@${DOMAIN#*.}" || \
+      warn "Certbot failed — run manually: sudo certbot certonly --webroot -w /var/www/certbot -d $DOMAIN"
   else
     success "TLS certificate already exists for $DOMAIN"
+  fi
+
+  if [[ -d "/etc/letsencrypt/live/$DOMAIN" ]]; then
+    install_final_nginx_conf
+  else
+    warn "Leaving temporary HTTP nginx config in place because TLS certificate is missing."
   fi
 
   # Auto-renew via cron

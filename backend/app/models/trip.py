@@ -1,10 +1,14 @@
 import uuid
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy import String, DateTime, Date, Integer, ForeignKey, Enum as SAEnum, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
 from app.db.database import Base
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class AccommodationType(str, enum.Enum):
@@ -40,7 +44,7 @@ class Trip(Base):
     travel_method: Mapped[TravelMethod] = mapped_column(SAEnum(TravelMethod))
     travelers: Mapped[int] = mapped_column(Integer, default=1)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utc_now)
 
     user: Mapped["User"] = relationship("User", back_populates="trips")  # noqa: F821
     packing_items: Mapped[list["PackingItem"]] = relationship(  # noqa: F821

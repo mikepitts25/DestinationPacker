@@ -44,7 +44,7 @@ setup_venv() {
     source "$BACKEND_DIR/.venv/bin/activate"
 
     info "Installing Python dependencies..."
-    pip install -q -r "$BACKEND_DIR/requirements.txt"
+    python -m pip install -q -r "$BACKEND_DIR/requirements.txt"
     log "Dependencies installed."
 }
 

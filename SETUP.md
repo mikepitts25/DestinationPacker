@@ -11,7 +11,7 @@ Complete step-by-step instructions to get the app running from a fresh machine.
 **Ubuntu / Debian:**
 ```bash
 sudo apt update
-sudo apt install -y python3.12 python3.12-venv python3-pip git curl
+sudo apt install -y python3.12 python3.12-venv python3.12-dev git curl
 
 # Docker
 curl -fsSL https://get.docker.com | sh
@@ -250,6 +250,30 @@ docker compose down          # stops Postgres + Valkey + Ollama
 
 ### Backend Deployment
 
+For a VPS, prefer the production setup script because it creates the Python
+virtual environment used by the systemd service and avoids installing packages
+into the OS-managed Python.
+
+```bash
+./scripts/setup-backend.sh
+```
+
+After later `git pull` updates on the VPS, install Python dependency changes
+inside the service venv:
+
+```bash
+cd ~/DestinationPacker
+backend/venv/bin/python -m pip install -r backend/requirements.txt
+backend/venv/bin/alembic upgrade head
+sudo systemctl restart destinationpacker
+```
+
+If your service was created manually with a different venv path, check it with:
+
+```bash
+sudo systemctl cat destinationpacker
+```
+
 1. **Set production values in `.env`:**
    ```
    ENVIRONMENT=production
@@ -322,7 +346,23 @@ docker compose down          # stops Postgres + Valkey + Ollama
 ```bash
 cd backend
 source .venv/bin/activate
-pip install pydantic[email]
+python -m pip install pydantic[email]
+```
+
+### "error: externally-managed-environment" when running pip
+Recent Debian and Ubuntu releases block system-wide `pip install` by default.
+Use the project venv instead:
+
+```bash
+# Development/local backend venv
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+
+# Production VPS venv created by scripts/setup-backend.sh
+cd ~/DestinationPacker
+backend/venv/bin/python -m pip install -r backend/requirements.txt
 ```
 
 ### Docker permission denied
@@ -360,6 +400,6 @@ docker compose up -d db valkey
 ### Reset everything and start fresh
 ```bash
 docker compose down -v           # removes all data volumes
-rm -rf backend/.venv             # removes Python venv
+rm -rf backend/.venv backend/venv # removes Python venvs
 cd backend && ./start.sh --dev   # rebuilds everything
 ```
