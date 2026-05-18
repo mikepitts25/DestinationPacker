@@ -121,6 +121,28 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
 
+create or replace function public.prevent_client_subscription_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.subscription is distinct from old.subscription
+     and coalesce(auth.role(), '') <> 'service_role' then
+    raise exception 'subscription can only be updated by trusted server-side code'
+      using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists prevent_client_subscription_update on public.profiles;
+create trigger prevent_client_subscription_update
+before update of subscription on public.profiles
+for each row execute function public.prevent_client_subscription_update();
+
 alter table public.profiles enable row level security;
 alter table public.trips enable row level security;
 alter table public.packing_items enable row level security;

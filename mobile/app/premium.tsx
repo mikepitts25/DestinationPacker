@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Button, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import { usersApi } from '@/services/api';
 import { useAuthStore } from '@/stores/authStore';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 
 const FEATURES = [
   { icon: '🚫', title: 'Ad-free experience', free: false, premium: true },
-  { icon: '🤖', title: 'AI-powered packing lists', description: 'Personalized by Claude AI', free: false, premium: true },
+  { icon: '🤖', title: 'AI-powered packing lists', description: 'Gemini-enhanced suggestions', free: false, premium: true },
   { icon: '✈️', title: 'Saved trips', free: '3 max', premium: 'Unlimited' },
   { icon: '🗺️', title: 'AI activity recommendations', description: 'Curated for your interests', free: false, premium: true },
   { icon: '👥', title: 'Trip collaboration', description: 'Share & edit with travel companions', free: false, premium: true },
@@ -23,24 +22,25 @@ export default function PremiumScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const activatePremium = async () => {
+  const refreshSubscription = async () => {
     setLoading(true);
     setError('');
     try {
-      const updatedUser = await usersApi.updateSubscription('premium');
+      const updatedUser = await usersApi.me();
       setUser(updatedUser);
-      router.back();
+      if (updatedUser.subscription !== 'premium') {
+        setError('Premium purchases are not configured yet. Subscription changes are managed securely through Supabase, not from the mobile client.');
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to activate premium');
+      setError(err.message || 'Failed to refresh subscription');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMonthly = () => activatePremium();
-  const handleAnnual = () => activatePremium();
-
-  const handleRestore = () => activatePremium();
+  const handleMonthly = () => refreshSubscription();
+  const handleAnnual = () => refreshSubscription();
+  const handleRestore = () => refreshSubscription();
 
   return (
     <SafeAreaView style={styles.container}>

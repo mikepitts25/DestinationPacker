@@ -13,7 +13,6 @@ import type {
   ItemSource,
   PackingItem,
   PackingList,
-  SubscriptionTier,
   Trip,
   TripCreate,
   User,
@@ -264,19 +263,6 @@ export const usersApi = {
     const { data: updated, error } = await supabase
       .from('profiles')
       .update(data)
-      .eq('id', userId)
-      .select('id,email,display_name,subscription,preferences,created_at')
-      .single();
-
-    if (error) throw new ApiError(error.message, 400);
-    return mapProfile(updated);
-  },
-
-  updateSubscription: async (subscription: SubscriptionTier) => {
-    const userId = await requireUserId();
-    const { data: updated, error } = await supabase
-      .from('profiles')
-      .update({ subscription })
       .eq('id', userId)
       .select('id,email,display_name,subscription,preferences,created_at')
       .single();

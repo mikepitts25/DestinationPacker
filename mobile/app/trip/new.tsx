@@ -141,7 +141,7 @@ export default function NewTripScreen() {
       } else if (err.isUnauthorized) {
         setSubmitError('Session expired — please sign in again.');
       } else {
-        setSubmitError(err.message || 'Failed to create trip. Is the backend reachable?');
+        setSubmitError(err.message || 'Failed to create trip. Check your connection and try again.');
       }
     }
   };
