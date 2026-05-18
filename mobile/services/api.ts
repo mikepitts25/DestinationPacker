@@ -2,11 +2,16 @@ import * as Linking from 'expo-linking';
 import { FREE_TRIP_LIMIT } from '@/constants/config';
 import { supabase } from '@/lib/supabase';
 import {
-  classifyWeather,
   generateActivityPackingItems,
   generatePackingList,
   type PackingRecommendation,
 } from '@/lib/packing/ruleEngine';
+import {
+  daysUntil,
+  forecastDaysForTrip,
+  parseOpenMeteoForecast,
+  unavailableForecast,
+} from '@/lib/weather/forecast';
 import type {
   Activity,
   ActivityType,
@@ -16,7 +21,6 @@ import type {
   Trip,
   TripCreate,
   User,
-  WeatherDay,
   WeatherForecast,
 } from '@/types';
 
@@ -689,110 +693,29 @@ export const activitiesApi = {
 
 // Weather and places
 
-const WMO_DESCRIPTIONS: Record<number, [string, boolean, boolean]> = {
-  0: ['Clear sky', false, false],
-  1: ['Mainly clear', false, false],
-  2: ['Partly cloudy', false, false],
-  3: ['Overcast', false, false],
-  45: ['Foggy', false, false],
-  48: ['Freezing fog', false, false],
-  51: ['Light drizzle', true, false],
-  53: ['Moderate drizzle', true, false],
-  55: ['Dense drizzle', true, false],
-  56: ['Freezing drizzle', true, false],
-  57: ['Heavy freezing drizzle', true, false],
-  61: ['Slight rain', true, false],
-  63: ['Moderate rain', true, false],
-  65: ['Heavy rain', true, false],
-  66: ['Freezing rain', true, false],
-  67: ['Heavy freezing rain', true, false],
-  71: ['Slight snow', false, true],
-  73: ['Moderate snow', false, true],
-  75: ['Heavy snow', false, true],
-  77: ['Snow grains', false, true],
-  80: ['Slight rain showers', true, false],
-  81: ['Moderate rain showers', true, false],
-  82: ['Violent rain showers', true, false],
-  85: ['Slight snow showers', false, true],
-  86: ['Heavy snow showers', false, true],
-  95: ['Thunderstorm', true, false],
-  96: ['Thunderstorm with hail', true, false],
-  99: ['Thunderstorm with heavy hail', true, false],
-};
-
-function daysUntil(date: string): number {
-  const today = new Date();
-  const start = new Date(`${date}T00:00:00`);
-  today.setHours(0, 0, 0, 0);
-  return Math.floor((start.getTime() - today.getTime()) / 86400000);
-}
-
-function parseForecast(destination: string, data: any): WeatherForecast {
-  const daily = data?.daily ?? {};
-  const dates = daily.time ?? [];
-  const tempMaxes = daily.temperature_2m_max ?? [];
-  const tempMins = daily.temperature_2m_min ?? [];
-  const weatherCodes = daily.weathercode ?? daily.weather_code ?? [];
-  const days: WeatherDay[] = [];
-
-  for (let i = 0; i < Math.min(16, dates.length); i += 1) {
-    const temp_min = Number(tempMins[i]);
-    const temp_max = Number(tempMaxes[i]);
-    const avg_temp = (temp_min + temp_max) / 2;
-    const [description, has_rain, has_snow] = WMO_DESCRIPTIONS[Number(weatherCodes[i])] ?? ['Unknown', false, false];
-
-    days.push({
-      date: dates[i],
-      temp_min: Math.round(temp_min * 10) / 10,
-      temp_max: Math.round(temp_max * 10) / 10,
-      avg_temp: Math.round(avg_temp * 10) / 10,
-      description,
-      has_rain,
-      has_snow,
-      icon: has_snow ? 'snow' : has_rain ? 'rain' : avg_temp > 27 ? 'sunny' : 'cloudy',
-    });
-  }
-
-  const avgTemp = days.length > 0
-    ? days.reduce((sum, day) => sum + day.avg_temp, 0) / days.length
-    : 20;
-  const conditions = classifyWeather(
-    avgTemp,
-    days.some((day) => day.has_rain),
-    days.some((day) => day.has_snow),
-  );
-  const tempRange = days.length > 0
-    ? `${Math.min(...days.map((day) => day.temp_min)).toFixed(0)}-${Math.max(...days.map((day) => day.temp_max)).toFixed(0)}C`
-    : 'unknown';
-  const rain = days.some((day) => day.has_rain) ? ' with rain expected' : '';
-  const snow = days.some((day) => day.has_snow) ? ' with snow expected' : '';
-
-  return {
-    destination,
-    days,
-    conditions,
-    summary: `Temperatures ${tempRange}${rain}${snow}.`,
-  };
-}
-
 export const weatherApi = {
   getForecast: async (
     lat: number,
     lon: number,
     destination: string,
     startDate?: string,
-    _endDate?: string,
+    endDate?: string,
   ): Promise<WeatherForecast> => {
     if (startDate && daysUntil(startDate) > 16) {
-      return {
+      return unavailableForecast(
         destination,
-        days: [],
-        conditions: [],
-        summary: 'Weather forecast is not available yet for these trip dates. Check back within about two weeks of departure for accurate Open-Meteo data.',
-      };
+        'Weather forecast is not available yet for these trip dates. Check back within about two weeks of departure for accurate Open-Meteo data.',
+      );
     }
 
-    const forecastDays = startDate ? Math.min(16, Math.max(1, daysUntil(startDate) + 7)) : 7;
+    if (endDate && daysUntil(endDate) < 0) {
+      return unavailableForecast(
+        destination,
+        'Weather forecast is no longer available for these past trip dates.',
+      );
+    }
+
+    const forecastDays = forecastDaysForTrip(startDate, endDate);
     const url = new URL('https://api.open-meteo.com/v1/forecast');
     url.searchParams.set('latitude', String(lat));
     url.searchParams.set('longitude', String(lon));
@@ -802,7 +725,7 @@ export const weatherApi = {
 
     const res = await fetch(url.toString());
     if (!res.ok) throw new ApiError(`Weather unavailable (${res.status})`, res.status);
-    return parseForecast(destination, await res.json());
+    return parseOpenMeteoForecast(destination, await res.json(), startDate, endDate);
   },
 
   autocomplete: async (query: string) => {
