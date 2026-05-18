@@ -1,21 +1,3 @@
-import Constants from 'expo-constants';
-
-const ENV = {
-  development: {
-    API_URL: 'http://185.135.137.33:8000/api',
-  },
-  production: {
-    API_URL: 'http://185.135.137.33:8000/api',
-  },
-};
-
-const getEnv = () => {
-  const releaseChannel = Constants.expoConfig?.extra?.releaseChannel ?? 'development';
-  return releaseChannel === 'production' ? ENV.production : ENV.development;
-};
-
-export const config = getEnv();
-
 export const FREE_TRIP_LIMIT = 3;
 
 export const ADMOB_BANNER_ID =

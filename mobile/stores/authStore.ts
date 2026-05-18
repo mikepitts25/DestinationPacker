@@ -1,22 +1,22 @@
 import { create } from 'zustand';
 import type { User } from '@/types';
-import { setAuthToken } from '@/services/api';
+import { supabase } from '@/lib/supabase';
 
 interface AuthState {
   user: User | null;
-  firebaseToken: string | null;
+  sessionToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isPremium: boolean;
   setUser: (user: User | null) => void;
-  setFirebaseToken: (token: string | null) => void;
+  setSessionToken: (token: string | null) => void;
   setLoading: (loading: boolean) => void;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  firebaseToken: null,
+  sessionToken: null,
   isLoading: true,
   isAuthenticated: false,
   isPremium: false,
@@ -29,15 +29,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
-  setFirebaseToken: (token) => {
-    setAuthToken(token);
-    set({ firebaseToken: token });
-  },
+  setSessionToken: (token) => set({ sessionToken: token }),
 
   setLoading: (isLoading) => set({ isLoading }),
 
-  signOut: () => {
-    setAuthToken(null);
-    set({ user: null, firebaseToken: null, isAuthenticated: false, isPremium: false });
+  signOut: async () => {
+    await supabase.auth.signOut();
+    set({ user: null, sessionToken: null, isAuthenticated: false, isPremium: false });
   },
 }));

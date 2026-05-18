@@ -1,10 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { weatherApi } from '@/services/api';
 
-export function useWeatherForecast(lat: number | null, lon: number | null, destination: string) {
+export function useWeatherForecast(
+  lat: number | null,
+  lon: number | null,
+  destination: string,
+  startDate?: string,
+  endDate?: string,
+) {
   return useQuery({
-    queryKey: ['weather', lat, lon],
-    queryFn: () => weatherApi.getForecast(lat!, lon!, destination),
+    queryKey: ['weather', lat, lon, startDate, endDate],
+    queryFn: () => weatherApi.getForecast(lat!, lon!, destination, startDate, endDate),
     enabled: lat !== null && lon !== null,
     staleTime: 3 * 60 * 60 * 1000, // 3 hours
   });

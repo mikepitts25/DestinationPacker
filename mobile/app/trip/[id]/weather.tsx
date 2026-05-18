@@ -14,6 +14,8 @@ export default function WeatherScreen() {
     trip?.latitude ?? null,
     trip?.longitude ?? null,
     trip?.destination ?? '',
+    trip?.start_date,
+    trip?.end_date,
   );
 
   if (!trip?.latitude || !trip?.longitude) {

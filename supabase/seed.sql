@@ -1,0 +1,2 @@
+-- No seed data is required. This file is present because Supabase local
+-- development loads ./seed.sql by default.
