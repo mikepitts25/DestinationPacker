@@ -25,7 +25,9 @@
         "backgroundColor": "#1a73e8"
       },
       "package": "com.destinationpacker.app",
-      "permissions": ["ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -41,7 +43,8 @@
           "icon": "./assets/notification-icon.png",
           "color": "#1a73e8"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {
