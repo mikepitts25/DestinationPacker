@@ -67,6 +67,7 @@ Optional provider overrides:
 supabase secrets set NOMINATIM_URL=https://nominatim.openstreetmap.org
 supabase secrets set NOMINATIM_USER_AGENT="DestinationPacker/1.0 (you@example.com)"
 supabase secrets set OVERPASS_URL=https://overpass-api.de/api/interpreter
+supabase secrets set OVERPASS_USER_AGENT="DestinationPacker/1.0 (you@example.com)"
 ```
 
 ## Verification

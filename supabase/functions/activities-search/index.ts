@@ -10,6 +10,10 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const overpassUrl = Deno.env.get("OVERPASS_URL") ??
   "https://overpass-api.de/api/interpreter";
+const contactEmail = Deno.env.get("OSM_CONTACT_EMAIL") ??
+  "support@destinationpacker.app";
+const userAgent = Deno.env.get("OVERPASS_USER_AGENT") ??
+  `DestinationPacker/1.0 (${contactEmail})`;
 const admin = createClient(supabaseUrl, serviceRoleKey);
 
 type OverpassElement = {
@@ -123,21 +127,25 @@ async function searchActivities(destination: string, lat: number, lon: number) {
   if (cached) return cached;
 
   const query = `
-    [out:json][timeout:15];
+    [out:json][timeout:20];
     (
-      nwr["tourism"~"attraction|museum|gallery|artwork|viewpoint|zoo|theme_park|aquarium"](around:12000,${lat},${lon});
-      nwr["leisure"~"park|garden|beach_resort|nature_reserve|sports_centre|water_park|stadium"](around:12000,${lat},${lon});
-      nwr["amenity"~"theatre|cinema|marketplace|place_of_worship"](around:10000,${lat},${lon});
-      nwr["historic"~"castle|monument|memorial|ruins|archaeological_site|fort"](around:12000,${lat},${lon});
-      nwr["building"="cathedral"](around:12000,${lat},${lon});
-      nwr["natural"~"beach|cave_entrance|hot_spring|peak"](around:15000,${lat},${lon});
+      nwr["tourism"~"attraction|museum|gallery|artwork|viewpoint|zoo|theme_park|aquarium"](around:5000,${lat},${lon});
+      nwr["leisure"~"park|garden|beach_resort|nature_reserve|sports_centre|water_park|stadium"](around:5000,${lat},${lon});
+      nwr["amenity"~"theatre|cinema|marketplace|place_of_worship"](around:4000,${lat},${lon});
+      nwr["historic"~"castle|monument|memorial|ruins|archaeological_site|fort"](around:5000,${lat},${lon});
+      nwr["building"="cathedral"](around:5000,${lat},${lon});
+      nwr["natural"~"beach|cave_entrance|hot_spring|peak"](around:7000,${lat},${lon});
     );
     out center 40;
   `;
 
   const res = await fetch(overpassUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "User-Agent": userAgent,
+    },
     body: new URLSearchParams({ data: query }),
   });
 

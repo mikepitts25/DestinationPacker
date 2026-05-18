@@ -48,6 +48,7 @@ supabase secrets set GEMINI_API_KEY=your-gemini-key
 supabase secrets set GEMINI_MODEL=gemini-2.5-flash-lite
 supabase secrets set OSM_CONTACT_EMAIL=you@example.com
 supabase secrets set NOMINATIM_USER_AGENT="DestinationPacker/1.0 (you@example.com)"
+supabase secrets set OVERPASS_USER_AGENT="DestinationPacker/1.0 (you@example.com)"
 ```
 
 5. Deploy functions:
