@@ -17,6 +17,7 @@ function forecastFixture() {
       temperature_2m_min: [12, 25, 26, 5],
       temperature_2m_max: [18, 34, 35, 9],
       weathercode: [61, 0, 0, 71],
+      precipitation_probability_max: [70, 10, 20, 80],
     },
   };
 }
@@ -29,6 +30,7 @@ describe('Open-Meteo forecast parsing', () => {
     expect(forecast.conditions).toContain('hot');
     expect(forecast.conditions).not.toContain('rain');
     expect(forecast.conditions).not.toContain('snow');
+    expect(forecast.days[0].rain_probability).toBe(10);
   });
 
   it('uses today through the end date for an in-progress trip', () => {

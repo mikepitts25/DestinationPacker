@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import {
   generateActivityPackingItems,
   generatePackingList,
+  packingActivityKeysForActivity,
   type PackingRecommendation,
 } from '@/lib/packing/ruleEngine';
 import {
@@ -14,6 +15,7 @@ import {
 } from '@/lib/weather/forecast';
 import type {
   Activity,
+  ActivityInterest,
   ActivityType,
   ItemSource,
   PackingItem,
@@ -83,6 +85,9 @@ function mapTrip(row: any): Trip {
     accommodation: row.accommodation,
     travel_method: row.travel_method,
     travelers: row.travelers,
+    male_travelers: row.male_travelers ?? 0,
+    female_travelers: row.female_travelers ?? 0,
+    activity_interests: row.activity_interests ?? [],
     notes: row.notes ?? null,
     duration_days: durationDays(row.start_date, row.end_date),
     created_at: row.created_at,
@@ -326,9 +331,20 @@ export const tripsApi = {
       }
     }
 
+    const maleTravelers = Math.max(0, data.male_travelers ?? 0);
+    const femaleTravelers = Math.max(0, data.female_travelers ?? 0);
+    const travelerTotal = Math.max(1, maleTravelers + femaleTravelers || data.travelers || 1);
+
     const { data: inserted, error } = await supabase
       .from('trips')
-      .insert({ ...data, user_id: user.id })
+      .insert({
+        ...data,
+        user_id: user.id,
+        travelers: travelerTotal,
+        male_travelers: maleTravelers,
+        female_travelers: femaleTravelers,
+        activity_interests: data.activity_interests ?? [],
+      })
       .select('*')
       .single();
 
@@ -410,11 +426,15 @@ export const packingApi = {
       }
     }
 
-    const selectedActivityTypes = Array.from(new Set((selectedActivities ?? []).map((activity: any) => activity.activity_type)));
+    const selectedActivityTypes = Array.from(new Set((selectedActivities ?? []).flatMap((activity: any) => (
+      packingActivityKeysForActivity(activity)
+    ))));
     const activityIdByType = new Map<string, string>();
     for (const activity of selectedActivities ?? []) {
-      if (!activityIdByType.has(activity.activity_type)) {
-        activityIdByType.set(activity.activity_type, activity.id);
+      for (const activityKey of packingActivityKeysForActivity(activity)) {
+        if (!activityIdByType.has(activityKey)) {
+          activityIdByType.set(activityKey, activity.id);
+        }
       }
     }
     const ruleItems = generatePackingList(trip, weather?.conditions ?? [], selectedActivityTypes);
@@ -510,8 +530,23 @@ export const packingApi = {
 
 // Activities
 
-function fallbackActivities(destination: string): Omit<Activity, 'id' | 'trip_id' | 'selected'>[] {
-  return [
+const ACTIVITY_TYPES_BY_INTEREST: Record<ActivityInterest, ActivityType[]> = {
+  beaches: ['beach', 'water'],
+  museums: ['cultural'],
+  nightlife: ['nightlife'],
+  dining: ['dining'],
+  outdoors: ['outdoor', 'sports'],
+  wellness: ['wellness'],
+  shopping: ['shopping', 'souvenirs'],
+};
+
+function matchesActivityInterests(activityType: ActivityType, interests: ActivityInterest[]) {
+  if (interests.length === 0) return true;
+  return interests.some((interest) => ACTIVITY_TYPES_BY_INTEREST[interest]?.includes(activityType));
+}
+
+function fallbackActivities(destination: string, interests: ActivityInterest[] = []): Omit<Activity, 'id' | 'trip_id' | 'selected'>[] {
+  const activities: Omit<Activity, 'id' | 'trip_id' | 'selected'>[] = [
     {
       activity_name: `Explore ${destination} city center`,
       activity_type: 'cultural',
@@ -544,11 +579,46 @@ function fallbackActivities(destination: string): Omit<Activity, 'id' | 'trip_id
       external_id: null,
       photo_url: null,
     },
+    {
+      activity_name: 'Beach or waterfront time',
+      activity_type: 'beach',
+      description: 'Spend time by the water if the destination has a beach, lake, riverfront, or pool area.',
+      source: 'suggested',
+      external_id: null,
+      photo_url: null,
+    },
+    {
+      activity_name: 'Evening drinks or club night',
+      activity_type: 'nightlife',
+      description: 'Plan a night out at a bar, lounge, live music venue, or club.',
+      source: 'suggested',
+      external_id: null,
+      photo_url: null,
+    },
+    {
+      activity_name: 'Spa, wellness, or fitness session',
+      activity_type: 'wellness',
+      description: 'Look for a spa, yoga class, gym session, or wellness activity nearby.',
+      source: 'suggested',
+      external_id: null,
+      photo_url: null,
+    },
+    {
+      activity_name: 'Local markets and shopping',
+      activity_type: 'shopping',
+      description: 'Browse local markets for souvenirs and goods.',
+      source: 'suggested',
+      external_id: null,
+      photo_url: null,
+    },
   ];
+
+  const filtered = activities.filter((activity) => matchesActivityInterests(activity.activity_type, interests));
+  return filtered.length > 0 ? filtered : activities.slice(0, 5);
 }
 
-function normalizeActivities(items: unknown, destination: string): Omit<Activity, 'id' | 'trip_id' | 'selected'>[] {
-  if (!Array.isArray(items)) return fallbackActivities(destination);
+function normalizeActivities(items: unknown, destination: string, interests: ActivityInterest[] = []): Omit<Activity, 'id' | 'trip_id' | 'selected'>[] {
+  if (!Array.isArray(items)) return fallbackActivities(destination, interests);
 
   const normalized = items.flatMap((item: any) => {
     if (!item || typeof item.activity_name !== 'string') return [];
@@ -562,7 +632,7 @@ function normalizeActivities(items: unknown, destination: string): Omit<Activity
     }];
   });
 
-  return normalized.length > 0 ? normalized : fallbackActivities(destination);
+  return normalized.length > 0 ? normalized : fallbackActivities(destination, interests);
 }
 
 export const activitiesApi = {
@@ -580,7 +650,7 @@ export const activitiesApi = {
 
   fetch: async (tripId: string) => {
     const trip = await tripsApi.get(tripId);
-    let activities = fallbackActivities(trip.destination);
+    let activities = fallbackActivities(trip.destination, trip.activity_interests);
 
     if (trip.latitude !== null && trip.longitude !== null) {
       try {
@@ -589,14 +659,15 @@ export const activitiesApi = {
             destination: trip.destination,
             lat: trip.latitude,
             lon: trip.longitude,
+            interests: trip.activity_interests,
           },
         });
 
         if (!error) {
-          activities = normalizeActivities(data?.activities ?? data, trip.destination);
+          activities = normalizeActivities(data?.activities ?? data, trip.destination, trip.activity_interests);
         }
       } catch {
-        activities = fallbackActivities(trip.destination);
+        activities = fallbackActivities(trip.destination, trip.activity_interests);
       }
     }
 
@@ -640,7 +711,9 @@ export const activitiesApi = {
 
       if (deleteError) throw new ApiError(deleteError.message, 400);
     } else {
-      const additions = generateActivityPackingItems(updated.activity_type);
+      const additions = packingActivityKeysForActivity(updated).flatMap((activityKey) => (
+        generateActivityPackingItems(activityKey)
+      ));
       if (additions.length > 0) {
         const { data: existingRows, error: existingError } = await supabase
           .from('packing_items')
@@ -719,7 +792,7 @@ export const weatherApi = {
     const url = new URL('https://api.open-meteo.com/v1/forecast');
     url.searchParams.set('latitude', String(lat));
     url.searchParams.set('longitude', String(lon));
-    url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,weathercode,precipitation_sum');
+    url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,weathercode,precipitation_sum,precipitation_probability_max');
     url.searchParams.set('timezone', 'auto');
     url.searchParams.set('forecast_days', String(forecastDays));
 

@@ -7,6 +7,8 @@ export interface PackingTripContext {
   accommodation: AccommodationType;
   travel_method: TravelMethod;
   travelers: number;
+  male_travelers?: number;
+  female_travelers?: number;
 }
 
 export interface PackingRecommendation {
@@ -51,6 +53,12 @@ const DURATION_RULES: FormulaRule[] = [
   [4, 'Toiletries', 'Laundry detergent sheets', '1', false],
   [7, 'Misc', 'Packing cubes', '1', false],
   [7, 'Misc', 'Travel-size laundry soap', '1', false],
+];
+
+const FEMALE_TRAVELER_RULES: FixedRule[] = [
+  ['Clothing', 'Bras', 2, false],
+  ['Toiletries', 'Makeup / cosmetics bag', 1, false],
+  ['Toiletries', 'Feminine hygiene products', 1, false],
 ];
 
 const WEATHER_RULES: Record<string, FixedRule[]> = {
@@ -153,11 +161,14 @@ const ACTIVITY_RULES: Record<string, FixedRule[]> = {
     ['Misc', 'Matches / lighter', 2, true],
     ['Misc', 'Bear canister (check local rules)', 1, false],
   ],
-  cultural: [
-    ['Clothing', 'Modest / respectful attire (cover shoulders & knees)', 2, true],
-    ['Clothing', 'Comfortable walking shoes', 1, true],
-    ['Misc', 'Reusable tote bag for souvenirs', 1, false],
-    ['Documents', 'Guidebook or offline maps', 1, false],
+  cultural: [],
+  theater: [
+    ['Clothing', 'Smart evening outfit', 1, false],
+    ['Clothing', 'Dress shoes / polished flats', 1, false],
+  ],
+  place_of_worship: [
+    ['Clothing', 'Modest / respectful attire (cover shoulders & knees)', 1, true],
+    ['Clothing', 'Light scarf or shoulder cover', 1, false],
   ],
   nightlife: [
     ['Clothing', 'Going-out outfit', 2, true],
@@ -352,6 +363,12 @@ export function generatePackingList(
     }
   }
 
+  if ((trip.female_travelers ?? 0) > 0) {
+    for (const [category, itemName, quantity, essential] of FEMALE_TRAVELER_RULES) {
+      mergeRecommendation(recommendations, category, itemName, quantity, essential, 'rule_engine');
+    }
+  }
+
   for (const condition of weatherConditions) {
     for (const [category, itemName, quantity, essential] of WEATHER_RULES[condition] ?? []) {
       mergeRecommendation(recommendations, category, itemName, quantity, essential, 'rule_engine');
@@ -373,6 +390,28 @@ export function generatePackingList(
   }
 
   return Array.from(recommendations.values());
+}
+
+export function packingActivityKeysForActivity(activity: {
+  activity_type: string;
+  activity_name?: string | null;
+  description?: string | null;
+}): string[] {
+  const text = `${activity.activity_name ?? ''} ${activity.description ?? ''}`.toLowerCase();
+  const keys = new Set<string>();
+
+  if (['beach', 'water', 'snow', 'business', 'wellness', 'outdoor', 'dining', 'nightlife', 'souvenirs'].includes(activity.activity_type)) {
+    keys.add(activity.activity_type);
+  }
+
+  if (activity.activity_type === 'cultural') {
+    if (/(theater|theatre|opera|ballet|concert|cinema|show)/.test(text)) keys.add('theater');
+    if (/(church|cathedral|mosque|synagogue|temple|shrine|place_of_worship|place of worship)/.test(text)) {
+      keys.add('place_of_worship');
+    }
+  }
+
+  return Array.from(keys);
 }
 
 export function generateActivityPackingItems(activityType: string): PackingRecommendation[] {

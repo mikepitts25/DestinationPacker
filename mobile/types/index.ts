@@ -25,6 +25,15 @@ export type ActivityType =
   | 'shopping'
   | 'souvenirs';
 
+export type ActivityInterest =
+  | 'beaches'
+  | 'museums'
+  | 'nightlife'
+  | 'dining'
+  | 'outdoors'
+  | 'wellness'
+  | 'shopping';
+
 export type ItemSource = 'rule_engine' | 'ai' | 'activity' | 'user_added';
 
 export interface User {
@@ -48,6 +57,9 @@ export interface Trip {
   accommodation: AccommodationType;
   travel_method: TravelMethod;
   travelers: number;
+  male_travelers: number;
+  female_travelers: number;
+  activity_interests: ActivityInterest[];
   notes: string | null;
   duration_days: number;
   created_at: string;
@@ -93,6 +105,7 @@ export interface WeatherDay {
   description: string;
   has_rain: boolean;
   has_snow: boolean;
+  rain_probability: number | null;
   icon: string;
 }
 
@@ -113,5 +126,8 @@ export interface TripCreate {
   accommodation: AccommodationType;
   travel_method: TravelMethod;
   travelers: number;
+  male_travelers?: number;
+  female_travelers?: number;
+  activity_interests?: ActivityInterest[];
   notes?: string;
 }

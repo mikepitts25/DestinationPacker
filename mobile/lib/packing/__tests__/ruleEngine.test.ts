@@ -60,6 +60,27 @@ describe('packing rule engine', () => {
     expect(items.find((item) => item.item_name === 'Pants / shorts')?.quantity).toBe(8);
   });
 
+  it('adds female traveler personal care items without changing traveler quantity scaling', () => {
+    const items = generatePackingList({
+      ...baseTrip,
+      travelers: 3,
+      female_travelers: 2,
+    });
+
+    expect(items.find((item) => item.item_name === 'Underwear')?.quantity).toBe(15);
+    expect(names(items)).toContain('Bras');
+    expect(names(items)).toContain('Makeup / cosmetics bag');
+  });
+
+  it('does not add generic cultural packing items unless the selected activity needs extra attire', () => {
+    const museumItems = generatePackingList(baseTrip, [], ['cultural']);
+    const theaterItems = generatePackingList(baseTrip, [], ['theater']);
+
+    expect(names(museumItems)).not.toContain('Modest / respectful attire (cover shoulders & knees)');
+    expect(names(museumItems)).not.toContain('Smart evening outfit');
+    expect(names(theaterItems)).toContain('Smart evening outfit');
+  });
+
   it('merges duplicate item names instead of duplicating them', () => {
     const items = generatePackingList(baseTrip, ['hot'], ['beach']);
     const sunscreen = items.filter((item) => item.item_name === 'Sunscreen SPF 50+');

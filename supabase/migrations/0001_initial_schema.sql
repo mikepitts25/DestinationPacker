@@ -24,6 +24,9 @@ create table if not exists public.trips (
   travel_method text not null
     check (travel_method in ('flight', 'road_trip', 'train', 'cruise', 'backpacking')),
   travelers integer not null default 1 check (travelers >= 1),
+  male_travelers integer not null default 0 check (male_travelers >= 0),
+  female_travelers integer not null default 0 check (female_travelers >= 0),
+  activity_interests text[] not null default '{}'::text[],
   notes text,
   created_at timestamptz not null default now(),
   check (end_date >= start_date)

@@ -140,7 +140,7 @@ function ActivityCard({
           {emoji} {activity.activity_type}
         </Chip>
         {activity.description && (
-          <Text style={styles.description} numberOfLines={2}>
+          <Text style={styles.description} numberOfLines={3}>
             {activity.description}
           </Text>
         )}

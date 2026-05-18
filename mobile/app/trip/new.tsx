@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
-import { Text, Button, TextInput, HelperText, ProgressBar, Menu, Snackbar } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Text, Button, TextInput, HelperText, ProgressBar, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useCreateTrip } from '@/hooks/useTrips';
-import { weatherApi } from '@/services/api';
+import { packingApi, weatherApi } from '@/services/api';
+import { DateRangeCalendar } from '@/components/DateRangeCalendar';
 import { Colors, Spacing, Typography } from '@/constants/theme';
-import type { AccommodationType, TravelMethod, TripCreate } from '@/types';
+import type { AccommodationType, ActivityInterest, TravelMethod, TripCreate } from '@/types';
 
 const STEPS = ['Destination', 'Dates', 'How', 'Stay', 'Details'];
 
@@ -29,39 +29,32 @@ const ACCOMMODATION_TYPES: { value: AccommodationType; label: string; emoji: str
   { value: 'friends_family', label: "Friend's/Family", emoji: '🏘️' },
 ];
 
-const TRAVELER_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-function formatDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function parseDate(dateStr: string): Date {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
+const ACTIVITY_INTERESTS: { value: ActivityInterest; label: string }[] = [
+  { value: 'beaches', label: 'Beaches' },
+  { value: 'museums', label: 'Museums' },
+  { value: 'nightlife', label: 'Nightlife' },
+  { value: 'dining', label: 'Dining' },
+  { value: 'outdoors', label: 'Outdoors' },
+  { value: 'wellness', label: 'Wellness' },
+  { value: 'shopping', label: 'Shopping' },
+];
 
 export default function NewTripScreen() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<Partial<TripCreate>>({
     travelers: 1,
+    male_travelers: 1,
+    female_travelers: 0,
+    activity_interests: [],
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
-
-  // Date picker state
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Autocomplete state
   const [destQuery, setDestQuery] = useState('');
   const [suggestions, setSuggestions] = useState<{ place_id: string; description: string }[]>([]);
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
-
-  // Traveler dropdown
-  const [showTravelerMenu, setShowTravelerMenu] = useState(false);
 
   const { mutateAsync: createTrip, isPending } = useCreateTrip();
 
@@ -118,6 +111,9 @@ export default function NewTripScreen() {
     }
     if (step === 2 && !form.travel_method) newErrors.travel_method = 'Please select a travel method';
     if (step === 3 && !form.accommodation) newErrors.accommodation = 'Please select accommodation';
+    if (step === 4 && ((form.male_travelers ?? 0) + (form.female_travelers ?? 0)) < 1) {
+      newErrors.travelers = 'Please add at least one traveler';
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -132,8 +128,22 @@ export default function NewTripScreen() {
   };
 
   const handleSubmit = async () => {
+    setIsSubmitting(true);
     try {
-      const trip = await createTrip(form as TripCreate);
+      const maleTravelers = Math.max(0, form.male_travelers ?? 0);
+      const femaleTravelers = Math.max(0, form.female_travelers ?? 0);
+      const trip = await createTrip({
+        ...form,
+        travelers: Math.max(1, maleTravelers + femaleTravelers),
+        male_travelers: maleTravelers,
+        female_travelers: femaleTravelers,
+        activity_interests: form.activity_interests ?? [],
+      } as TripCreate);
+      try {
+        await packingApi.generate(trip.id);
+      } catch (packingError) {
+        console.warn('Trip created, but packing generation failed', packingError);
+      }
       router.replace(`/trip/${trip.id}`);
     } catch (err: any) {
       if (err.isPaymentRequired) {
@@ -143,21 +153,30 @@ export default function NewTripScreen() {
       } else {
         setSubmitError(err.message || 'Failed to create trip. Check your connection and try again.');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const onStartDateChange = (_event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') setShowStartPicker(false);
-    if (selectedDate) {
-      setForm((f) => ({ ...f, start_date: formatDate(selectedDate) }));
-    }
+  const updateTravelerCount = (field: 'male_travelers' | 'female_travelers', delta: number) => {
+    setForm((current) => {
+      const nextValue = Math.max(0, (current[field] ?? 0) + delta);
+      const next = { ...current, [field]: nextValue };
+      const total = Math.max(1, (next.male_travelers ?? 0) + (next.female_travelers ?? 0));
+      return { ...next, travelers: total };
+    });
   };
 
-  const onEndDateChange = (_event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') setShowEndPicker(false);
-    if (selectedDate) {
-      setForm((f) => ({ ...f, end_date: formatDate(selectedDate) }));
-    }
+  const toggleInterest = (interest: ActivityInterest) => {
+    setForm((current) => {
+      const currentInterests = current.activity_interests ?? [];
+      return {
+        ...current,
+        activity_interests: currentInterests.includes(interest)
+          ? currentInterests.filter((item) => item !== interest)
+          : [...currentInterests, interest],
+      };
+    });
   };
 
   return (
@@ -209,67 +228,22 @@ export default function NewTripScreen() {
         {step === 1 && (
           <View>
             <Text style={styles.question}>When are you traveling? 📅</Text>
-
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowStartPicker(true)}
-            >
-              <Text style={styles.dateLabel}>Start date</Text>
-              <Text style={styles.dateValue}>
-                {form.start_date ?? 'Tap to select'}
-              </Text>
-            </TouchableOpacity>
+            <DateRangeCalendar
+              startDate={form.start_date}
+              endDate={form.end_date}
+              onChange={(range) => setForm((current) => ({
+                ...current,
+                start_date: range.startDate,
+                end_date: range.endDate,
+              }))}
+            />
             <HelperText type="error" visible={!!errors.start_date}>{errors.start_date}</HelperText>
-
-            {showStartPicker && (
-              <View style={styles.pickerContainer}>
-                <DateTimePicker
-                  value={form.start_date ? parseDate(form.start_date) : new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  minimumDate={new Date()}
-                  onChange={onStartDateChange}
-                />
-                {Platform.OS === 'ios' && (
-                  <Button onPress={() => setShowStartPicker(false)} style={styles.pickerDone}>
-                    Done
-                  </Button>
-                )}
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowEndPicker(true)}
-            >
-              <Text style={styles.dateLabel}>End date</Text>
-              <Text style={styles.dateValue}>
-                {form.end_date ?? 'Tap to select'}
-              </Text>
-            </TouchableOpacity>
             <HelperText type="error" visible={!!errors.end_date}>{errors.end_date}</HelperText>
-
-            {showEndPicker && (
-              <View style={styles.pickerContainer}>
-                <DateTimePicker
-                  value={form.end_date ? parseDate(form.end_date) : (form.start_date ? parseDate(form.start_date) : new Date())}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  minimumDate={form.start_date ? parseDate(form.start_date) : new Date()}
-                  onChange={onEndDateChange}
-                />
-                {Platform.OS === 'ios' && (
-                  <Button onPress={() => setShowEndPicker(false)} style={styles.pickerDone}>
-                    Done
-                  </Button>
-                )}
-              </View>
-            )}
 
             {form.start_date && form.end_date && (
               <View style={styles.durationBadge}>
                 <Text style={styles.durationText}>
-                  {Math.ceil((parseDate(form.end_date).getTime() - parseDate(form.start_date).getTime()) / (1000 * 60 * 60 * 24))} nights
+                  {Math.ceil((new Date(form.end_date).getTime() - new Date(form.start_date).getTime()) / (1000 * 60 * 60 * 24))} nights
                 </Text>
               </View>
             )}
@@ -322,31 +296,39 @@ export default function NewTripScreen() {
           <View>
             <Text style={styles.question}>Almost done! A few final details 🎉</Text>
 
-            <Text style={styles.fieldLabel}>Number of travelers</Text>
-            <Menu
-              visible={showTravelerMenu}
-              onDismiss={() => setShowTravelerMenu(false)}
-              anchor={
-                <TouchableOpacity
-                  style={styles.dropdownButton}
-                  onPress={() => setShowTravelerMenu(true)}
-                >
-                  <Text style={styles.dropdownValue}>{form.travelers ?? 1} traveler{(form.travelers ?? 1) > 1 ? 's' : ''}</Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
-                </TouchableOpacity>
-              }
-            >
-              {TRAVELER_OPTIONS.map((n) => (
-                <Menu.Item
-                  key={n}
-                  title={`${n} traveler${n > 1 ? 's' : ''}`}
-                  onPress={() => {
-                    setForm((f) => ({ ...f, travelers: n }));
-                    setShowTravelerMenu(false);
-                  }}
-                />
-              ))}
-            </Menu>
+            <Text style={styles.fieldLabel}>Travelers</Text>
+            <TravelerCounter
+              label="Male"
+              value={form.male_travelers ?? 0}
+              onMinus={() => updateTravelerCount('male_travelers', -1)}
+              onPlus={() => updateTravelerCount('male_travelers', 1)}
+            />
+            <TravelerCounter
+              label="Female"
+              value={form.female_travelers ?? 0}
+              onMinus={() => updateTravelerCount('female_travelers', -1)}
+              onPlus={() => updateTravelerCount('female_travelers', 1)}
+            />
+            <Text style={styles.travelerTotal}>{form.travelers ?? 1} total traveler{(form.travelers ?? 1) > 1 ? 's' : ''}</Text>
+            <HelperText type="error" visible={!!errors.travelers}>{errors.travelers}</HelperText>
+
+            <Text style={[styles.fieldLabel, { marginTop: Spacing.md }]}>Activity interests</Text>
+            <View style={styles.interestGrid}>
+              {ACTIVITY_INTERESTS.map((interest) => {
+                const selected = (form.activity_interests ?? []).includes(interest.value);
+                return (
+                  <TouchableOpacity
+                    key={interest.value}
+                    style={[styles.interestChip, selected && styles.interestChipSelected]}
+                    onPress={() => toggleInterest(interest.value)}
+                  >
+                    <Text style={[styles.interestText, selected && styles.interestTextSelected]}>
+                      {interest.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
             <TextInput
               label="Notes (optional)"
@@ -365,12 +347,12 @@ export default function NewTripScreen() {
         <Button
           mode="contained"
           onPress={handleNext}
-          loading={isPending}
-          disabled={isPending}
+          loading={isPending || isSubmitting}
+          disabled={isPending || isSubmitting}
           style={styles.nextButton}
           contentStyle={styles.nextButtonContent}
         >
-          {step === STEPS.length - 1 ? '✨ Generate Packing List' : 'Next'}
+          {step === STEPS.length - 1 ? 'Generate Packing List' : 'Next'}
         </Button>
       </View>
 
@@ -417,23 +399,6 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   suggestionText: { ...Typography.body, color: Colors.onSurface },
-  dateButton: {
-    backgroundColor: Colors.surface,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  dateLabel: { ...Typography.caption, color: Colors.muted, marginBottom: 4 },
-  dateValue: { ...Typography.body, color: Colors.onSurface },
-  pickerContainer: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    marginBottom: Spacing.md,
-    overflow: 'hidden',
-  },
-  pickerDone: { alignSelf: 'flex-end', marginRight: Spacing.sm, marginBottom: Spacing.sm },
   durationBadge: {
     alignSelf: 'flex-start',
     backgroundColor: '#e8f0fe',
@@ -444,7 +409,7 @@ const styles = StyleSheet.create({
   },
   durationText: { ...Typography.label, color: Colors.primary },
   fieldLabel: { ...Typography.label, color: Colors.muted, marginBottom: Spacing.xs },
-  dropdownButton: {
+  counterRow: {
     backgroundColor: Colors.surface,
     borderRadius: 8,
     borderWidth: 1,
@@ -453,9 +418,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: Spacing.sm,
   },
-  dropdownValue: { ...Typography.body, color: Colors.onSurface },
-  dropdownArrow: { color: Colors.muted, fontSize: 12 },
+  counterLabel: { ...Typography.body, color: Colors.onSurface, fontWeight: '600' },
+  counterControls: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  counterButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#e8f0fe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  counterButtonText: { fontSize: 22, color: Colors.primary, lineHeight: 24 },
+  counterValue: { ...Typography.h3, color: Colors.onSurface, minWidth: 24, textAlign: 'center' },
+  travelerTotal: { ...Typography.caption, color: Colors.muted, marginTop: -4 },
+  interestGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  interestChip: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  interestChipSelected: { backgroundColor: '#e8f0fe', borderColor: Colors.primary },
+  interestText: { ...Typography.caption, color: Colors.muted },
+  interestTextSelected: { color: Colors.primary, fontWeight: '700' },
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -496,3 +485,30 @@ const styles = StyleSheet.create({
   nextButton: { borderRadius: 12 },
   nextButtonContent: { paddingVertical: Spacing.sm },
 });
+
+function TravelerCounter({
+  label,
+  value,
+  onMinus,
+  onPlus,
+}: {
+  label: string;
+  value: number;
+  onMinus: () => void;
+  onPlus: () => void;
+}) {
+  return (
+    <View style={styles.counterRow}>
+      <Text style={styles.counterLabel}>{label}</Text>
+      <View style={styles.counterControls}>
+        <TouchableOpacity style={styles.counterButton} onPress={onMinus}>
+          <Text style={styles.counterButtonText}>−</Text>
+        </TouchableOpacity>
+        <Text style={styles.counterValue}>{value}</Text>
+        <TouchableOpacity style={styles.counterButton} onPress={onPlus}>
+          <Text style={styles.counterButtonText}>+</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}

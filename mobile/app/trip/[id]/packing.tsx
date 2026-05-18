@@ -109,9 +109,9 @@ export default function PackingScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>No packing list yet.</Text>
+            <Text style={styles.emptyText}>Packing list is not available yet.</Text>
             <Button onPress={() => regenerate()} loading={isRegenerating}>
-              Generate Now
+              Retry
             </Button>
           </View>
         }

@@ -71,6 +71,7 @@ export function parseOpenMeteoForecast(
   const tempMaxes = daily.temperature_2m_max ?? [];
   const tempMins = daily.temperature_2m_min ?? [];
   const weatherCodes = daily.weathercode ?? daily.weather_code ?? [];
+  const rainProbabilities = daily.precipitation_probability_max ?? [];
   const days: WeatherDay[] = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -96,6 +97,7 @@ export function parseOpenMeteoForecast(
       description,
       has_rain,
       has_snow,
+      rain_probability: Number.isFinite(Number(rainProbabilities[i])) ? Number(rainProbabilities[i]) : null,
       icon: has_snow ? 'snow' : has_rain ? 'rain' : avg_temp > 27 ? 'sunny' : 'cloudy',
     });
   }

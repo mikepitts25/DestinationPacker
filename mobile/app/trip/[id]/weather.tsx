@@ -88,6 +88,9 @@ function WeatherDayCard({ day }: { day: WeatherDay }) {
       <Text style={styles.weatherEmoji}>{conditionEmoji}</Text>
       <View style={styles.dayCenter}>
         <Text style={styles.description}>{day.description}</Text>
+        {day.rain_probability !== null && (
+          <Text style={styles.rainChance}>{day.rain_probability}% chance of rain</Text>
+        )}
       </View>
       <View style={styles.dayTemps}>
         <Text style={styles.tempMax}>{Math.round(day.temp_max)}°</Text>
@@ -134,6 +137,7 @@ const styles = StyleSheet.create({
   weatherEmoji: { fontSize: 28, width: 36, textAlign: 'center' },
   dayCenter: { flex: 1 },
   description: { ...Typography.caption, color: Colors.muted },
+  rainChance: { ...Typography.caption, color: Colors.primary, marginTop: 2 },
   dayTemps: { alignItems: 'flex-end' },
   tempMax: { ...Typography.body, color: Colors.onSurface, fontWeight: '700' },
   tempMin: { ...Typography.caption, color: Colors.muted },
