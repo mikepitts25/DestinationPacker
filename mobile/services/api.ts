@@ -8,6 +8,10 @@ import {
   type PackingRecommendation,
 } from '@/lib/packing/ruleEngine';
 import {
+  appendLocalActivitySuggestions,
+  type ActivitySuggestion,
+} from '@/lib/activities/localSuggestions';
+import {
   daysUntil,
   forecastDaysForTrip,
   parseOpenMeteoForecast,
@@ -118,6 +122,9 @@ function mapActivity(row: any): Activity {
     source: row.source,
     external_id: row.external_id ?? null,
     photo_url: row.photo_url ?? null,
+    rating: row.rating !== null && row.rating !== undefined ? Number(row.rating) : null,
+    review_count: row.review_count !== null && row.review_count !== undefined ? Number(row.review_count) : null,
+    rating_source: row.rating_source ?? null,
     selected: row.selected,
   };
 }
@@ -494,8 +501,34 @@ export const packingApi = {
       .insert({
         ...data,
         trip_id: tripId,
-        quantity: Math.max(1, data.quantity || 1),
+        quantity: Math.max(1, Math.min(99, data.quantity || 1)),
         source: 'user_added',
+      })
+      .select('*')
+      .single();
+
+    if (error) throw new ApiError(error.message, 400);
+    return mapPackingItem(inserted);
+  },
+
+  restoreItem: async (
+    tripId: string,
+    data: {
+      activity_id: string | null;
+      category: string;
+      item_name: string;
+      quantity: number;
+      packed: boolean;
+      essential: boolean;
+      source: ItemSource;
+    },
+  ) => {
+    const { data: inserted, error } = await supabase
+      .from('packing_items')
+      .insert({
+        ...data,
+        trip_id: tripId,
+        quantity: Math.max(1, Math.min(99, data.quantity || 1)),
       })
       .select('*')
       .single();
@@ -507,7 +540,10 @@ export const packingApi = {
   updateItem: async (tripId: string, itemId: string, data: { packed?: boolean; quantity?: number; item_name?: string; category?: string }) => {
     const { data: updated, error } = await supabase
       .from('packing_items')
-      .update(data)
+      .update({
+        ...data,
+        quantity: data.quantity === undefined ? undefined : Math.max(1, Math.min(99, data.quantity)),
+      })
       .eq('trip_id', tripId)
       .eq('id', itemId)
       .select('*')
@@ -515,6 +551,20 @@ export const packingApi = {
 
     if (error) throw new ApiError(error.message, 400);
     return mapPackingItem(updated);
+  },
+
+  setItemsPacked: async (tripId: string, itemIds: string[], packed: boolean) => {
+    if (itemIds.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from('packing_items')
+      .update({ packed })
+      .eq('trip_id', tripId)
+      .in('id', itemIds)
+      .select('*');
+
+    if (error) throw new ApiError(error.message, 400);
+    return (data ?? []).map(mapPackingItem);
   },
 
   deleteItem: async (tripId: string, itemId: string) => {
@@ -545,8 +595,8 @@ function matchesActivityInterests(activityType: ActivityType, interests: Activit
   return interests.some((interest) => ACTIVITY_TYPES_BY_INTEREST[interest]?.includes(activityType));
 }
 
-function fallbackActivities(destination: string, interests: ActivityInterest[] = []): Omit<Activity, 'id' | 'trip_id' | 'selected'>[] {
-  const activities: Omit<Activity, 'id' | 'trip_id' | 'selected'>[] = [
+function fallbackActivities(destination: string, interests: ActivityInterest[] = []): ActivitySuggestion[] {
+  const activities: ActivitySuggestion[] = [
     {
       activity_name: `Explore ${destination} city center`,
       activity_type: 'cultural',
@@ -614,14 +664,16 @@ function fallbackActivities(destination: string, interests: ActivityInterest[] =
   ];
 
   const filtered = activities.filter((activity) => matchesActivityInterests(activity.activity_type, interests));
-  return filtered.length > 0 ? filtered : activities.slice(0, 5);
+  return appendLocalActivitySuggestions(filtered.length > 0 ? filtered : activities.slice(0, 5), destination);
 }
 
-function normalizeActivities(items: unknown, destination: string, interests: ActivityInterest[] = []): Omit<Activity, 'id' | 'trip_id' | 'selected'>[] {
+function normalizeActivities(items: unknown, destination: string, interests: ActivityInterest[] = []): ActivitySuggestion[] {
   if (!Array.isArray(items)) return fallbackActivities(destination, interests);
 
   const normalized = items.flatMap((item: any) => {
     if (!item || typeof item.activity_name !== 'string') return [];
+    const rating = Number(item.rating);
+    const reviewCount = Number(item.review_count);
     return [{
       activity_name: item.activity_name,
       activity_type: (item.activity_type ?? 'cultural') as ActivityType,
@@ -629,10 +681,15 @@ function normalizeActivities(items: unknown, destination: string, interests: Act
       source: typeof item.source === 'string' ? item.source : 'openstreetmap',
       external_id: typeof item.external_id === 'string' ? item.external_id : null,
       photo_url: typeof item.photo_url === 'string' ? item.photo_url : null,
+      rating: Number.isFinite(rating) ? rating : null,
+      review_count: Number.isFinite(reviewCount) && reviewCount >= 0 ? Math.round(reviewCount) : null,
+      rating_source: typeof item.rating_source === 'string' ? item.rating_source : null,
     }];
   });
 
-  return normalized.length > 0 ? normalized : fallbackActivities(destination, interests);
+  return normalized.length > 0
+    ? appendLocalActivitySuggestions(normalized, destination)
+    : fallbackActivities(destination, interests);
 }
 
 export const activitiesApi = {
@@ -692,13 +749,17 @@ export const activitiesApi = {
   },
 
   toggle: async (tripId: string, activityId: string, selected: boolean) => {
-    const { data: updated, error } = await supabase
-      .from('trip_activities')
-      .update({ selected })
-      .eq('trip_id', tripId)
-      .eq('id', activityId)
-      .select('*')
-      .single();
+    const [trip, activityResult] = await Promise.all([
+      tripsApi.get(tripId),
+      supabase
+        .from('trip_activities')
+        .update({ selected })
+        .eq('trip_id', tripId)
+        .eq('id', activityId)
+        .select('*')
+        .single(),
+    ]);
+    const { data: updated, error } = activityResult;
 
     if (error) throw new ApiError(error.message, 400);
 
@@ -712,7 +773,7 @@ export const activitiesApi = {
       if (deleteError) throw new ApiError(deleteError.message, 400);
     } else {
       const additions = packingActivityKeysForActivity(updated).flatMap((activityKey) => (
-        generateActivityPackingItems(activityKey)
+        generateActivityPackingItems(activityKey, trip.travelers)
       ));
       if (additions.length > 0) {
         const { data: existingRows, error: existingError } = await supabase

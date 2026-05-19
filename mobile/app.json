@@ -46,9 +46,11 @@
       ]
     ],
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "your-eas-project-id"
+        "projectId": "469246a4-10c6-4b62-a8c9-02386dd2d7be"
       }
-    }
+    },
+    "owner": "mikepitts25"
   }
 }

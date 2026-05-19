@@ -5,6 +5,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useActivities, useFetchActivities, useToggleActivity } from '@/hooks/useActivities';
 import { useAuthStore } from '@/stores/authStore';
 import { Colors, Spacing, Typography } from '@/constants/theme';
+import { formatActivityRating } from '@/lib/activities/rating';
 import type { Activity, ActivityType } from '@/types';
 
 const ACTIVITY_EMOJI: Record<ActivityType, string> = {
@@ -22,16 +23,6 @@ const ACTIVITY_EMOJI: Record<ActivityType, string> = {
   souvenirs: '🎁',
 };
 
-const FILTER_TYPES: { label: string; value: ActivityType | 'all' }[] = [
-  { label: 'All', value: 'all' },
-  { label: '🥾 Outdoor', value: 'outdoor' },
-  { label: '🏛️ Culture', value: 'cultural' },
-  { label: '🍽️ Dining', value: 'dining' },
-  { label: '🎁 Souvenirs', value: 'souvenirs' },
-  { label: '🏖️ Beach', value: 'beach' },
-  { label: '🌃 Nightlife', value: 'nightlife' },
-];
-
 export default function ActivitiesScreen() {
   const { id: tripId } = useLocalSearchParams<{ id: string }>();
   const { data: activities, isLoading } = useActivities(tripId);
@@ -43,7 +34,7 @@ export default function ActivitiesScreen() {
     if (tripId && (!activities || activities.length === 0)) {
       fetchActivities();
     }
-  }, [tripId]);
+  }, [activities, fetchActivities, tripId]);
 
   const selectedCount = activities?.filter((a) => a.selected).length ?? 0;
 
@@ -115,6 +106,7 @@ function ActivityCard({
   disabled: boolean;
 }) {
   const emoji = ACTIVITY_EMOJI[activity.activity_type] ?? '📍';
+  const ratingText = formatActivityRating(activity);
 
   return (
     <TouchableOpacity
@@ -139,6 +131,9 @@ function ActivityCard({
         <Chip compact style={styles.typeChip} textStyle={styles.typeChipText}>
           {emoji} {activity.activity_type}
         </Chip>
+        {ratingText && (
+          <Text style={styles.ratingText}>{ratingText}</Text>
+        )}
         {activity.description && (
           <Text style={styles.description} numberOfLines={3}>
             {activity.description}
@@ -204,6 +199,7 @@ const styles = StyleSheet.create({
   checkmark: { fontSize: 18, marginLeft: 4 },
   typeChip: { backgroundColor: Colors.background, marginBottom: 4, alignSelf: 'flex-start' },
   typeChipText: { fontSize: 10, color: Colors.muted, lineHeight: 14 },
+  ratingText: { ...Typography.caption, color: Colors.primary, marginBottom: 4, fontWeight: '600' },
   description: { ...Typography.caption, color: Colors.muted },
   empty: { alignItems: 'center', paddingVertical: Spacing.xxl },
   emptyEmoji: { fontSize: 48, marginBottom: Spacing.md },

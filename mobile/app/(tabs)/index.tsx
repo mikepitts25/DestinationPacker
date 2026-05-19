@@ -1,10 +1,10 @@
-import { View, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { Text, FAB, ActivityIndicator, Chip } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, FlatList, StyleSheet, TouchableOpacity, Alert, StatusBar } from 'react-native';
+import { Text, FAB, ActivityIndicator } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useTrips, useDeleteTrip } from '@/hooks/useTrips';
 import { useAuthStore } from '@/stores/authStore';
-import { Colors, Spacing, Typography } from '@/constants/theme';
+import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { FREE_TRIP_LIMIT } from '@/constants/config';
 import type { Trip } from '@/types';
 
@@ -48,144 +48,192 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <FlatList
-        data={upcomingTrips}
-        keyExtractor={(t) => t.id}
-        contentContainerStyle={styles.list}
-        ListHeaderComponent={
-          <>
-            {!isPremium && (
-              <TouchableOpacity onPress={() => router.push('/premium')} style={styles.premiumBanner}>
-                <Text style={styles.premiumBannerText}>
-                  ✨ Upgrade to Premium — AI packing, unlimited trips & more
-                </Text>
-              </TouchableOpacity>
-            )}
-            <Text style={styles.sectionTitle}>
-              {upcomingTrips.length > 0 ? 'Upcoming Trips' : "You haven't planned any trips yet"}
-            </Text>
-          </>
-        }
-        renderItem={({ item }) => (
-          <TripCard trip={item} onDelete={() => handleDeleteTrip(item)} />
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🌍</Text>
-            <Text style={styles.emptyText}>Tap + to plan your first adventure!</Text>
-          </View>
-        }
-        ListFooterComponent={
-          pastTrips.length > 0 ? (
-            <>
-              <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>Past Trips</Text>
-              {pastTrips.map((trip) => (
-                <TripCard key={trip.id} trip={trip} past onDelete={() => handleDeleteTrip(trip)} />
-              ))}
-            </>
-          ) : null
-        }
-      />
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" />
 
-      {!isPremium && <View style={styles.adPlaceholder}><Text style={styles.adText}>Ad</Text></View>}
+      {/* Teal gradient header strip */}
+      <LinearGradient
+        colors={[Colors.deepDark, Colors.primaryDark]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerStrip}
+      >
+        <Text style={styles.headerTitle}>My Trips</Text>
+        <Text style={styles.headerSub}>{upcomingTrips.length} upcoming</Text>
+      </LinearGradient>
+
+      {/* White cream body */}
+      <View style={styles.body}>
+        {!isPremium && (
+          <TouchableOpacity onPress={() => router.push('/premium')} style={styles.premiumBanner}>
+            <LinearGradient
+              colors={[Colors.gold, Colors.goldDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.premiumGradient}
+            >
+              <Text style={styles.premiumBannerText}>
+                ✨ Upgrade to Premium — AI packing, unlimited trips & more
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
+        <FlatList
+          data={upcomingTrips}
+          keyExtractor={(t) => t.id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            upcomingTrips.length > 0 ? (
+              <Text style={styles.sectionTitle}>Upcoming Trips</Text>
+            ) : null
+          }
+          renderItem={({ item }) => (
+            <TripCard trip={item} onDelete={() => handleDeleteTrip(item)} />
+          )}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>🌍</Text>
+              <Text style={styles.emptyText}>Tap + to plan your first adventure!</Text>
+            </View>
+          }
+          ListFooterComponent={
+            pastTrips.length > 0 ? (
+              <>
+                <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>Past Trips</Text>
+                {pastTrips.map((trip) => (
+                  <TripCard key={trip.id} trip={trip} past onDelete={() => handleDeleteTrip(trip)} />
+                ))}
+              </>
+            ) : null
+          }
+        />
+      </View>
 
       <FAB
         icon="plus"
         style={styles.fab}
         onPress={handleAddTrip}
-        color={Colors.surface}
+        color="#FFFFFF"
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
+const TRAVEL_EMOJI: Record<string, string> = {
+  flight: '✈️', road_trip: '🚗', train: '🚂', cruise: '🚢', backpacking: '🎒',
+};
+const STAY_EMOJI: Record<string, string> = {
+  hotel: '🏨', hostel: '🏠', airbnb: '🏡', camping: '⛺', resort: '🏖️', cruise: '🚢', friends_family: '🏘️',
+};
+
 function TripCard({ trip, past, onDelete }: { trip: Trip; past?: boolean; onDelete: () => void }) {
   const nights = trip.duration_days - 1;
-  const accommodationEmoji: Record<string, string> = {
-    hotel: '🏨', hostel: '🏠', airbnb: '🏡', camping: '⛺',
-    resort: '🏖️', cruise: '🚢', friends_family: '🏘️',
-  };
-  const travelEmoji: Record<string, string> = {
-    flight: '✈️', road_trip: '🚗', train: '🚂', cruise: '🚢', backpacking: '🎒',
-  };
+  const startStr = new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const endStr = new Date(trip.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
     <TouchableOpacity
       style={[styles.card, past && styles.pastCard]}
       onPress={() => router.push(`/trip/${trip.id}`)}
       onLongPress={onDelete}
+      activeOpacity={0.85}
     >
-      <View style={styles.cardHeader}>
+      <View style={styles.cardTop}>
         <View style={{ flex: 1 }}>
           <Text style={styles.destination}>{trip.destination}</Text>
-          <Text style={styles.dates}>
-            {new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            {' — '}
-            {new Date(trip.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          <Text style={styles.dates}>{startStr} — {endStr}</Text>
+        </View>
+        <View style={styles.nightsBadge}>
+          <Text style={styles.nightsText}>{nights > 0 ? `${nights}N` : '1D'}</Text>
+        </View>
+      </View>
+      <View style={styles.tagRow}>
+        <View style={styles.tag}>
+          <Text style={styles.tagText}>
+            {TRAVEL_EMOJI[trip.travel_method] ?? '🚀'} {trip.travel_method.replace('_', ' ')}
           </Text>
         </View>
-        <Text style={styles.daysLabel}>{nights > 0 ? `${nights}N` : '1 day'}</Text>
-      </View>
-      <View style={styles.chips}>
-        <Chip compact style={styles.chip}>{travelEmoji[trip.travel_method]} {trip.travel_method.replace('_', ' ')}</Chip>
-        <Chip compact style={styles.chip}>{accommodationEmoji[trip.accommodation]} {trip.accommodation}</Chip>
-        {trip.travelers > 1 && <Chip compact style={styles.chip}>👥 {trip.travelers}</Chip>}
+        <View style={styles.tag}>
+          <Text style={styles.tagText}>
+            {STAY_EMOJI[trip.accommodation] ?? '🏨'} {trip.accommodation}
+          </Text>
+        </View>
+        {trip.travelers > 1 && (
+          <View style={styles.tag}>
+            <Text style={styles.tagText}>👥 {trip.travelers}</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  list: { padding: Spacing.md, paddingBottom: 120 },
-  sectionTitle: { ...Typography.h3, color: Colors.onSurface, marginBottom: Spacing.sm },
-  premiumBanner: {
-    backgroundColor: Colors.premiumGold,
-    borderRadius: 10,
-    padding: Spacing.sm,
-    marginBottom: Spacing.md,
-    alignItems: 'center',
+  root: { flex: 1, backgroundColor: Colors.deepDark },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+  headerStrip: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xl + 8,
   },
-  premiumBannerText: { ...Typography.label, color: '#5d4037' },
+  headerTitle: { fontSize: 26, fontWeight: '800', color: '#FFF9F4' },
+  headerSub: { fontSize: 13, color: 'rgba(255,249,244,0.65)', marginTop: 2 },
+  body: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -20,
+    overflow: 'hidden',
+  },
+  premiumBanner: { marginHorizontal: Spacing.md, marginTop: Spacing.md, borderRadius: Radius.md, overflow: 'hidden' },
+  premiumGradient: { padding: Spacing.sm + 2, alignItems: 'center' },
+  premiumBannerText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
+  list: { padding: Spacing.md, paddingBottom: 120 },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: Colors.primary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: Spacing.sm },
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: Colors.cardShadow,
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
-  pastCard: { opacity: 0.6 },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.sm,
+  pastCard: { opacity: 0.55 },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: Spacing.sm },
+  destination: { fontSize: 17, fontWeight: '700', color: Colors.onSurface },
+  dates: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  nightsBadge: {
+    backgroundColor: Colors.background,
+    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  destination: { ...Typography.h3, color: Colors.onSurface },
-  dates: { ...Typography.caption, color: Colors.muted, marginTop: 2 },
-  daysLabel: { ...Typography.label, color: Colors.primary, fontWeight: '700' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { backgroundColor: Colors.background },
+  nightsText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  tag: {
+    backgroundColor: Colors.background,
+    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  tagText: { fontSize: 12, color: Colors.onSurface },
   empty: { alignItems: 'center', paddingVertical: Spacing.xxl },
   emptyEmoji: { fontSize: 56, marginBottom: Spacing.md },
   emptyText: { ...Typography.body, color: Colors.muted },
-  adPlaceholder: {
-    height: 52,
-    backgroundColor: Colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  adText: { color: Colors.muted, fontSize: 11 },
   fab: {
     position: 'absolute',
-    bottom: 70,
+    bottom: 90,
     right: Spacing.lg,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.gold,
   },
 });

@@ -94,6 +94,9 @@ export interface Activity {
   source: string;
   external_id: string | null;
   photo_url: string | null;
+  rating: number | null;
+  review_count: number | null;
+  rating_source: string | null;
   selected: boolean;
 }
 
@@ -109,11 +112,18 @@ export interface WeatherDay {
   icon: string;
 }
 
+export interface WeatherForecastSource {
+  name: string;
+  url: string;
+}
+
 export interface WeatherForecast {
   destination: string;
   days: WeatherDay[];
   conditions: string[];
   summary: string;
+  source: WeatherForecastSource;
+  updated_at: string;
 }
 
 export interface TripCreate {

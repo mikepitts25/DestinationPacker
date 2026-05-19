@@ -1,5 +1,10 @@
 import { classifyWeather } from '@/lib/packing/ruleEngine';
-import type { WeatherDay, WeatherForecast } from '@/types';
+import type { WeatherDay, WeatherForecast, WeatherForecastSource } from '@/types';
+
+const OPEN_METEO_SOURCE: WeatherForecastSource = {
+  name: 'Open-Meteo',
+  url: 'https://open-meteo.com/',
+};
 
 const WMO_DESCRIPTIONS: Record<number, [string, boolean, boolean]> = {
   0: ['Clear sky', false, false],
@@ -45,6 +50,8 @@ export function unavailableForecast(destination: string, summary: string): Weath
     days: [],
     conditions: [],
     summary,
+    source: OPEN_METEO_SOURCE,
+    updated_at: new Date().toISOString(),
   };
 }
 
@@ -66,6 +73,7 @@ export function parseOpenMeteoForecast(
   startDate?: string,
   endDate?: string,
 ): WeatherForecast {
+  const updated_at = new Date().toISOString();
   const daily = data?.daily ?? {};
   const dates = daily.time ?? [];
   const tempMaxes = daily.temperature_2m_max ?? [];
@@ -128,5 +136,7 @@ export function parseOpenMeteoForecast(
     days,
     conditions,
     summary: `Temperatures ${tempRange}${rain}${snow}.`,
+    source: OPEN_METEO_SOURCE,
+    updated_at,
   };
 }

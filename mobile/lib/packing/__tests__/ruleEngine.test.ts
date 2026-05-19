@@ -1,5 +1,6 @@
 import {
   classifyWeather,
+  generateActivityPackingItems,
   generatePackingList,
   type PackingTripContext,
 } from '../ruleEngine';
@@ -58,6 +59,39 @@ describe('packing rule engine', () => {
     expect(items.find((item) => item.item_name === 'Underwear')?.quantity).toBe(16);
     expect(items.find((item) => item.item_name === 'T-shirts / tops')?.quantity).toBe(14);
     expect(items.find((item) => item.item_name === 'Pants / shorts')?.quantity).toBe(8);
+  });
+
+  it('scales personal essentials by travelers while keeping shared essentials as group quantities', () => {
+    const items = generatePackingList({
+      ...baseTrip,
+      travelers: 2,
+    });
+
+    expect(items.find((item) => item.item_name === 'Passport or ID')?.quantity).toBe(2);
+    expect(items.find((item) => item.item_name === 'Toothbrush')?.quantity).toBe(2);
+    expect(items.find((item) => item.item_name === 'Phone charger')?.quantity).toBe(2);
+    expect(items.find((item) => item.item_name === 'Toothpaste')?.quantity).toBe(1);
+    expect(items.find((item) => item.item_name === 'Reservation confirmations')?.quantity).toBe(1);
+  });
+
+  it('keeps the larger scaled quantity when duplicate personal recommendations merge', () => {
+    const items = generatePackingList({
+      ...baseTrip,
+      travelers: 2,
+    }, ['hot']);
+
+    const waterBottle = items.filter((item) => item.item_name === 'Reusable water bottle');
+
+    expect(waterBottle).toHaveLength(1);
+    expect(waterBottle[0].quantity).toBe(2);
+    expect(waterBottle[0].essential).toBe(true);
+  });
+
+  it('scales direct activity packing suggestions by travelers when requested', () => {
+    const items = generateActivityPackingItems('beach', 2);
+
+    expect(items.find((item) => item.item_name === 'Swimsuit')?.quantity).toBe(4);
+    expect(items.find((item) => item.item_name === 'Sunscreen SPF 50+')?.quantity).toBe(1);
   });
 
   it('adds female traveler personal care items without changing traveler quantity scaling', () => {

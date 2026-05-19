@@ -20,28 +20,35 @@ export interface PackingRecommendation {
   activity_type?: string | null;
 }
 
-type FixedRule = [category: string, itemName: string, quantity: number, essential: boolean];
+type FixedQuantityScope = 'shared' | 'per_traveler';
+type FixedRule = [
+  category: string,
+  itemName: string,
+  quantity: number,
+  essential: boolean,
+  quantityScope?: FixedQuantityScope,
+];
 type FormulaRule = [minDays: number, category: string, itemName: string, formula: string, essential: boolean];
 
 const ALWAYS_RULES: FixedRule[] = [
-  ['Documents', 'Passport or ID', 1, true],
+  ['Documents', 'Passport or ID', 1, true, 'per_traveler'],
   ['Documents', 'Travel insurance info', 1, true],
   ['Documents', 'Reservation confirmations', 1, true],
-  ['Electronics', 'Phone charger', 1, true],
+  ['Electronics', 'Phone charger', 1, true, 'per_traveler'],
   ['Electronics', 'Portable battery bank', 1, false],
-  ['Toiletries', 'Toothbrush', 1, true],
+  ['Toiletries', 'Toothbrush', 1, true, 'per_traveler'],
   ['Toiletries', 'Toothpaste', 1, true],
-  ['Toiletries', 'Deodorant', 1, true],
+  ['Toiletries', 'Deodorant', 1, true, 'per_traveler'],
   ['Toiletries', 'Shampoo & conditioner', 1, false],
   ['Toiletries', 'Body wash / soap', 1, false],
-  ['Toiletries', 'Face wash', 1, false],
-  ['Health', 'Prescription medications', 1, true],
+  ['Toiletries', 'Face wash', 1, false, 'per_traveler'],
+  ['Health', 'Prescription medications', 1, true, 'per_traveler'],
   ['Health', 'Pain reliever (ibuprofen/acetaminophen)', 1, false],
   ['Health', 'Antacids', 1, false],
   ['Health', 'Band-aids', 1, false],
-  ['Clothing', 'Comfortable walking shoes', 1, true],
-  ['Clothing', 'Pajamas / sleepwear', 1, false],
-  ['Misc', 'Reusable water bottle', 1, false],
+  ['Clothing', 'Comfortable walking shoes', 1, true, 'per_traveler'],
+  ['Clothing', 'Pajamas / sleepwear', 1, false, 'per_traveler'],
+  ['Misc', 'Reusable water bottle', 1, false, 'per_traveler'],
   ['Misc', 'Small day bag / backpack', 1, false],
 ];
 
@@ -56,105 +63,105 @@ const DURATION_RULES: FormulaRule[] = [
 ];
 
 const FEMALE_TRAVELER_RULES: FixedRule[] = [
-  ['Clothing', 'Bras', 2, false],
+  ['Clothing', 'Bras', 2, false, 'per_traveler'],
   ['Toiletries', 'Makeup / cosmetics bag', 1, false],
   ['Toiletries', 'Feminine hygiene products', 1, false],
 ];
 
 const WEATHER_RULES: Record<string, FixedRule[]> = {
   rain: [
-    ['Clothing', 'Waterproof rain jacket', 1, true],
-    ['Clothing', 'Waterproof shoes / boots', 1, false],
+    ['Clothing', 'Waterproof rain jacket', 1, true, 'per_traveler'],
+    ['Clothing', 'Waterproof shoes / boots', 1, false, 'per_traveler'],
     ['Misc', 'Compact travel umbrella', 1, false],
-    ['Clothing', 'Quick-dry pants', 1, false],
+    ['Clothing', 'Quick-dry pants', 1, false, 'per_traveler'],
   ],
   hot: [
     ['Toiletries', 'Sunscreen SPF 50+', 1, true],
-    ['Clothing', 'Sunglasses', 1, true],
-    ['Clothing', 'Sun hat / cap', 1, false],
-    ['Clothing', 'Breathable shorts', 2, false],
-    ['Clothing', 'Sandals / flip flops', 1, false],
+    ['Clothing', 'Sunglasses', 1, true, 'per_traveler'],
+    ['Clothing', 'Sun hat / cap', 1, false, 'per_traveler'],
+    ['Clothing', 'Breathable shorts', 2, false, 'per_traveler'],
+    ['Clothing', 'Sandals / flip flops', 1, false, 'per_traveler'],
     ['Misc', 'Electrolyte packets', 3, false],
-    ['Misc', 'Reusable water bottle', 1, true],
+    ['Misc', 'Reusable water bottle', 1, true, 'per_traveler'],
   ],
   cold: [
-    ['Clothing', 'Heavy winter coat', 1, true],
-    ['Clothing', 'Thermal / base layers', 2, true],
-    ['Clothing', 'Warm gloves', 1, true],
-    ['Clothing', 'Knit hat / beanie', 1, true],
-    ['Clothing', 'Wool or thermal socks', 3, false],
-    ['Clothing', 'Winter boots', 1, false],
-    ['Clothing', 'Scarf', 1, false],
+    ['Clothing', 'Heavy winter coat', 1, true, 'per_traveler'],
+    ['Clothing', 'Thermal / base layers', 2, true, 'per_traveler'],
+    ['Clothing', 'Warm gloves', 1, true, 'per_traveler'],
+    ['Clothing', 'Knit hat / beanie', 1, true, 'per_traveler'],
+    ['Clothing', 'Wool or thermal socks', 3, false, 'per_traveler'],
+    ['Clothing', 'Winter boots', 1, false, 'per_traveler'],
+    ['Clothing', 'Scarf', 1, false, 'per_traveler'],
   ],
   cool: [
-    ['Clothing', 'Light jacket or fleece', 1, true],
-    ['Clothing', 'Layering long-sleeve shirts', 2, false],
-    ['Clothing', 'Light gloves', 1, false],
+    ['Clothing', 'Light jacket or fleece', 1, true, 'per_traveler'],
+    ['Clothing', 'Layering long-sleeve shirts', 2, false, 'per_traveler'],
+    ['Clothing', 'Light gloves', 1, false, 'per_traveler'],
   ],
   snow: [
-    ['Clothing', 'Snow boots', 1, true],
-    ['Clothing', 'Waterproof winter coat', 1, true],
-    ['Clothing', 'Thermal base layers', 2, true],
-    ['Clothing', 'Warm gloves / mittens', 1, true],
-    ['Clothing', 'Neck gaiter / balaclava', 1, false],
+    ['Clothing', 'Snow boots', 1, true, 'per_traveler'],
+    ['Clothing', 'Waterproof winter coat', 1, true, 'per_traveler'],
+    ['Clothing', 'Thermal base layers', 2, true, 'per_traveler'],
+    ['Clothing', 'Warm gloves / mittens', 1, true, 'per_traveler'],
+    ['Clothing', 'Neck gaiter / balaclava', 1, false, 'per_traveler'],
   ],
 };
 
 const ACTIVITY_RULES: Record<string, FixedRule[]> = {
   hiking: [
-    ['Footwear', 'Hiking boots', 1, true],
-    ['Clothing', 'Moisture-wicking hiking socks', 3, true],
-    ['Clothing', 'Quick-dry hiking pants', 1, false],
-    ['Gear', 'Daypack / hiking backpack', 1, false],
-    ['Gear', 'Trekking poles', 1, false],
+    ['Footwear', 'Hiking boots', 1, true, 'per_traveler'],
+    ['Clothing', 'Moisture-wicking hiking socks', 3, true, 'per_traveler'],
+    ['Clothing', 'Quick-dry hiking pants', 1, false, 'per_traveler'],
+    ['Gear', 'Daypack / hiking backpack', 1, false, 'per_traveler'],
+    ['Gear', 'Trekking poles', 1, false, 'per_traveler'],
     ['Health', 'Blister pads', 1, false],
     ['Health', 'Bug spray / insect repellent', 1, true],
     ['Toiletries', 'Sunscreen SPF 50+', 1, true],
-    ['Misc', 'Trail snacks (bars, nuts)', 3, false],
-    ['Misc', 'Headlamp + extra batteries', 1, false],
+    ['Misc', 'Trail snacks (bars, nuts)', 3, false, 'per_traveler'],
+    ['Misc', 'Headlamp + extra batteries', 1, false, 'per_traveler'],
     ['Health', 'First aid kit', 1, true],
   ],
   beach: [
-    ['Clothing', 'Swimsuit', 2, true],
-    ['Clothing', 'Beach cover-up', 1, false],
-    ['Misc', 'Beach towel', 1, true],
+    ['Clothing', 'Swimsuit', 2, true, 'per_traveler'],
+    ['Clothing', 'Beach cover-up', 1, false, 'per_traveler'],
+    ['Misc', 'Beach towel', 1, true, 'per_traveler'],
     ['Toiletries', 'Sunscreen SPF 50+', 1, true],
-    ['Clothing', 'Flip flops / sandals', 1, true],
-    ['Clothing', 'Sunglasses', 1, true],
-    ['Clothing', 'Sun hat', 1, false],
+    ['Clothing', 'Flip flops / sandals', 1, true, 'per_traveler'],
+    ['Clothing', 'Sunglasses', 1, true, 'per_traveler'],
+    ['Clothing', 'Sun hat', 1, false, 'per_traveler'],
     ['Misc', 'Waterproof bag / dry bag', 1, false],
   ],
   water: [
-    ['Clothing', 'Swimsuit', 2, true],
-    ['Clothing', 'Rash guard', 1, false],
-    ['Clothing', 'Water shoes', 1, false],
+    ['Clothing', 'Swimsuit', 2, true, 'per_traveler'],
+    ['Clothing', 'Rash guard', 1, false, 'per_traveler'],
+    ['Clothing', 'Water shoes', 1, false, 'per_traveler'],
     ['Toiletries', 'Reef-safe sunscreen', 1, true],
-    ['Misc', 'Waterproof phone case', 1, false],
+    ['Misc', 'Waterproof phone case', 1, false, 'per_traveler'],
     ['Misc', 'Dry bag', 1, false],
   ],
   snow: [
-    ['Gear', 'Ski / snowboard gear (or plan to rent)', 1, true],
-    ['Clothing', 'Ski goggles', 1, true],
-    ['Clothing', 'Ski helmet (or rent)', 1, true],
-    ['Clothing', 'Ski jacket', 1, true],
-    ['Clothing', 'Ski pants / bibs', 1, true],
-    ['Clothing', 'Moisture-wicking base layers', 2, true],
-    ['Clothing', 'Ski socks', 3, true],
-    ['Clothing', 'Warm gloves / mittens', 1, true],
-    ['Misc', 'Hand warmers', 4, false],
-    ['Toiletries', 'Lip balm with SPF', 1, false],
+    ['Gear', 'Ski / snowboard gear (or plan to rent)', 1, true, 'per_traveler'],
+    ['Clothing', 'Ski goggles', 1, true, 'per_traveler'],
+    ['Clothing', 'Ski helmet (or rent)', 1, true, 'per_traveler'],
+    ['Clothing', 'Ski jacket', 1, true, 'per_traveler'],
+    ['Clothing', 'Ski pants / bibs', 1, true, 'per_traveler'],
+    ['Clothing', 'Moisture-wicking base layers', 2, true, 'per_traveler'],
+    ['Clothing', 'Ski socks', 3, true, 'per_traveler'],
+    ['Clothing', 'Warm gloves / mittens', 1, true, 'per_traveler'],
+    ['Misc', 'Hand warmers', 4, false, 'per_traveler'],
+    ['Toiletries', 'Lip balm with SPF', 1, false, 'per_traveler'],
     ['Toiletries', 'High SPF sunscreen (sun reflects off snow)', 1, true],
   ],
   camping: [
     ['Gear', 'Tent', 1, true],
-    ['Gear', 'Sleeping bag', 1, true],
-    ['Gear', 'Sleeping pad / inflatable mat', 1, false],
+    ['Gear', 'Sleeping bag', 1, true, 'per_traveler'],
+    ['Gear', 'Sleeping pad / inflatable mat', 1, false, 'per_traveler'],
     ['Gear', 'Camp stove + fuel', 1, false],
     ['Gear', 'Camp cookware set', 1, false],
-    ['Gear', 'Headlamp + extra batteries', 1, true],
+    ['Gear', 'Headlamp + extra batteries', 1, true, 'per_traveler'],
     ['Gear', 'Multi-tool / pocket knife', 1, false],
-    ['Clothing', 'Warm fleece jacket', 1, true],
-    ['Clothing', 'Rain jacket', 1, true],
+    ['Clothing', 'Warm fleece jacket', 1, true, 'per_traveler'],
+    ['Clothing', 'Rain jacket', 1, true, 'per_traveler'],
     ['Health', 'Bug spray', 1, true],
     ['Toiletries', 'Biodegradable soap', 1, false],
     ['Misc', 'Camp chairs (if backpacking: skip)', 1, false],
@@ -163,44 +170,44 @@ const ACTIVITY_RULES: Record<string, FixedRule[]> = {
   ],
   cultural: [],
   theater: [
-    ['Clothing', 'Smart evening outfit', 1, false],
-    ['Clothing', 'Dress shoes / polished flats', 1, false],
+    ['Clothing', 'Smart evening outfit', 1, false, 'per_traveler'],
+    ['Clothing', 'Dress shoes / polished flats', 1, false, 'per_traveler'],
   ],
   place_of_worship: [
-    ['Clothing', 'Modest / respectful attire (cover shoulders & knees)', 1, true],
-    ['Clothing', 'Light scarf or shoulder cover', 1, false],
+    ['Clothing', 'Modest / respectful attire (cover shoulders & knees)', 1, true, 'per_traveler'],
+    ['Clothing', 'Light scarf or shoulder cover', 1, false, 'per_traveler'],
   ],
   nightlife: [
-    ['Clothing', 'Going-out outfit', 2, true],
-    ['Clothing', 'Dress shoes / heels', 1, false],
-    ['Misc', 'Small clutch / evening bag', 1, false],
+    ['Clothing', 'Going-out outfit', 2, true, 'per_traveler'],
+    ['Clothing', 'Dress shoes / heels', 1, false, 'per_traveler'],
+    ['Misc', 'Small clutch / evening bag', 1, false, 'per_traveler'],
     ['Health', 'Earplugs (for light sleepers)', 1, false],
   ],
   business: [
-    ['Clothing', 'Business attire (shirts, trousers/skirt)', 3, true],
-    ['Clothing', 'Dress shoes', 1, true],
-    ['Clothing', 'Blazer / sport coat', 1, true],
-    ['Electronics', 'Laptop + charger', 1, true],
-    ['Electronics', 'USB-C hub / adapters', 1, false],
+    ['Clothing', 'Business attire (shirts, trousers/skirt)', 3, true, 'per_traveler'],
+    ['Clothing', 'Dress shoes', 1, true, 'per_traveler'],
+    ['Clothing', 'Blazer / sport coat', 1, true, 'per_traveler'],
+    ['Electronics', 'Laptop + charger', 1, true, 'per_traveler'],
+    ['Electronics', 'USB-C hub / adapters', 1, false, 'per_traveler'],
     ['Documents', 'Business cards', 20, false],
     ['Documents', 'Presentation materials', 1, false],
-    ['Misc', 'Professional padfolio / notebook', 1, false],
+    ['Misc', 'Professional padfolio / notebook', 1, false, 'per_traveler'],
   ],
   wellness: [
-    ['Clothing', 'Workout clothes', 3, false],
-    ['Clothing', 'Running shoes', 1, false],
-    ['Gear', 'Resistance bands', 1, false],
-    ['Misc', 'Foam roller / massage ball', 1, false],
-    ['Misc', 'Yoga mat (or confirm availability)', 1, false],
+    ['Clothing', 'Workout clothes', 3, false, 'per_traveler'],
+    ['Clothing', 'Running shoes', 1, false, 'per_traveler'],
+    ['Gear', 'Resistance bands', 1, false, 'per_traveler'],
+    ['Misc', 'Foam roller / massage ball', 1, false, 'per_traveler'],
+    ['Misc', 'Yoga mat (or confirm availability)', 1, false, 'per_traveler'],
   ],
   outdoor: [
-    ['Clothing', 'Moisture-wicking athletic wear', 2, false],
+    ['Clothing', 'Moisture-wicking athletic wear', 2, false, 'per_traveler'],
     ['Toiletries', 'Sunscreen SPF 30+', 1, true],
-    ['Clothing', 'Sun hat / cap', 1, false],
+    ['Clothing', 'Sun hat / cap', 1, false, 'per_traveler'],
     ['Health', 'Bug spray', 1, false],
   ],
   dining: [
-    ['Clothing', 'Smart casual outfit', 2, false],
+    ['Clothing', 'Smart casual outfit', 2, false, 'per_traveler'],
     ['Documents', 'Restaurant reservation confirmations', 1, false],
   ],
   souvenirs: [
@@ -213,61 +220,61 @@ const ACTIVITY_RULES: Record<string, FixedRule[]> = {
 
 const TRAVEL_METHOD_RULES: Record<string, FixedRule[]> = {
   flight: [
-    ['Clothing', 'Comfortable travel outfit (layers)', 1, true],
+    ['Clothing', 'Comfortable travel outfit (layers)', 1, true, 'per_traveler'],
     ['Misc', 'Luggage locks (TSA-approved)', 2, false],
-    ['Misc', 'Travel pillow', 1, false],
-    ['Electronics', 'Noise-cancelling headphones / earbuds', 1, false],
-    ['Health', 'Compression socks (for long flights)', 1, false],
-    ['Documents', 'Printed boarding passes (backup)', 1, false],
-    ['Misc', 'Snacks for airport / flight', 3, false],
-    ['Electronics', 'Power adapter / voltage converter', 1, false],
+    ['Misc', 'Travel pillow', 1, false, 'per_traveler'],
+    ['Electronics', 'Noise-cancelling headphones / earbuds', 1, false, 'per_traveler'],
+    ['Health', 'Compression socks (for long flights)', 1, false, 'per_traveler'],
+    ['Documents', 'Printed boarding passes (backup)', 1, false, 'per_traveler'],
+    ['Misc', 'Snacks for airport / flight', 3, false, 'per_traveler'],
+    ['Electronics', 'Power adapter / voltage converter', 1, false, 'per_traveler'],
   ],
   road_trip: [
     ['Electronics', 'Car phone mount', 1, false],
     ['Electronics', 'Car charger / USB adapter', 1, true],
     ['Misc', 'Road trip snacks', 5, false],
-    ['Misc', 'Reusable water bottles', 2, false],
+    ['Misc', 'Reusable water bottles', 1, false, 'per_traveler'],
     ['Misc', 'Car emergency kit (check if you have one)', 1, true],
     ['Misc', 'Paper maps / atlas (backup)', 1, false],
-    ['Clothing', 'Comfortable driving shoes', 1, false],
+    ['Clothing', 'Comfortable driving shoes', 1, false, 'per_traveler'],
   ],
   train: [
-    ['Misc', 'Travel pillow', 1, false],
-    ['Electronics', 'Headphones / earbuds', 1, false],
-    ['Misc', 'Snacks for journey', 3, false],
-    ['Documents', 'Printed tickets (backup)', 1, false],
+    ['Misc', 'Travel pillow', 1, false, 'per_traveler'],
+    ['Electronics', 'Headphones / earbuds', 1, false, 'per_traveler'],
+    ['Misc', 'Snacks for journey', 3, false, 'per_traveler'],
+    ['Documents', 'Printed tickets (backup)', 1, false, 'per_traveler'],
   ],
   cruise: [
-    ['Clothing', 'Formal / cocktail outfit (for formal nights)', 2, true],
-    ['Clothing', 'Swimsuit', 2, true],
-    ['Health', 'Sea-sickness bands / Dramamine', 1, false],
+    ['Clothing', 'Formal / cocktail outfit (for formal nights)', 2, true, 'per_traveler'],
+    ['Clothing', 'Swimsuit', 2, true, 'per_traveler'],
+    ['Health', 'Sea-sickness bands / Dramamine', 1, false, 'per_traveler'],
     ['Documents', 'Cruise card / booking documents', 1, true],
     ['Misc', 'Power strip (without surge protector - check cruise rules)', 1, false],
   ],
   backpacking: [
-    ['Gear', 'Backpack (40-60L)', 1, true],
-    ['Gear', 'Packing cubes / compression sacks', 3, true],
-    ['Misc', 'Padlock for hostel lockers', 1, true],
-    ['Clothing', 'Quick-dry microfiber towel', 1, true],
-    ['Health', 'Water purification tablets or filter', 1, false],
-    ['Electronics', 'Universal power adapter', 1, true],
+    ['Gear', 'Backpack (40-60L)', 1, true, 'per_traveler'],
+    ['Gear', 'Packing cubes / compression sacks', 3, true, 'per_traveler'],
+    ['Misc', 'Padlock for hostel lockers', 1, true, 'per_traveler'],
+    ['Clothing', 'Quick-dry microfiber towel', 1, true, 'per_traveler'],
+    ['Health', 'Water purification tablets or filter', 1, false, 'per_traveler'],
+    ['Electronics', 'Universal power adapter', 1, true, 'per_traveler'],
     ['Misc', 'Ziplock bags (various sizes)', 5, false],
   ],
 };
 
 const ACCOMMODATION_RULES: Record<string, FixedRule[]> = {
   hostel: [
-    ['Misc', 'Padlock for locker', 1, true],
-    ['Clothing', 'Flip flops (for shared showers)', 1, true],
-    ['Misc', 'Earplugs', 2, true],
-    ['Misc', 'Eye mask', 1, false],
-    ['Misc', 'Combination lock', 1, false],
-    ['Misc', "Microfiber towel (hostels often don't provide)", 1, true],
+    ['Misc', 'Padlock for locker', 1, true, 'per_traveler'],
+    ['Clothing', 'Flip flops (for shared showers)', 1, true, 'per_traveler'],
+    ['Misc', 'Earplugs', 2, true, 'per_traveler'],
+    ['Misc', 'Eye mask', 1, false, 'per_traveler'],
+    ['Misc', 'Combination lock', 1, false, 'per_traveler'],
+    ['Misc', "Microfiber towel (hostels often don't provide)", 1, true, 'per_traveler'],
   ],
   camping: [
     ['Gear', 'Tent', 1, true],
-    ['Gear', 'Sleeping bag', 1, true],
-    ['Gear', 'Sleeping pad', 1, true],
+    ['Gear', 'Sleeping bag', 1, true, 'per_traveler'],
+    ['Gear', 'Sleeping pad', 1, true, 'per_traveler'],
     ['Misc', 'Lantern / camp light', 1, true],
     ['Misc', 'Matches or lighter', 2, true],
   ],
@@ -302,6 +309,10 @@ function evalQuantity(formula: string, days: number, travelers: number): number 
     default:
       return 1;
   }
+}
+
+function fixedQuantity(quantity: number, scope: FixedQuantityScope | undefined, travelers: number): number {
+  return scope === 'per_traveler' ? quantity * travelers : quantity;
 }
 
 function mergeRecommendation(
@@ -346,8 +357,15 @@ export function generatePackingList(
   const travelers = Math.max(1, trip.travelers || 1);
   const recommendations = new Map<string, PackingRecommendation>();
 
-  for (const [category, itemName, quantity, essential] of ALWAYS_RULES) {
-    mergeRecommendation(recommendations, category, itemName, quantity, essential, 'rule_engine');
+  for (const [category, itemName, quantity, essential, quantityScope] of ALWAYS_RULES) {
+    mergeRecommendation(
+      recommendations,
+      category,
+      itemName,
+      fixedQuantity(quantity, quantityScope, travelers),
+      essential,
+      'rule_engine',
+    );
   }
 
   for (const [minDays, category, itemName, formula, essential] of DURATION_RULES) {
@@ -363,30 +381,67 @@ export function generatePackingList(
     }
   }
 
-  if ((trip.female_travelers ?? 0) > 0) {
-    for (const [category, itemName, quantity, essential] of FEMALE_TRAVELER_RULES) {
-      mergeRecommendation(recommendations, category, itemName, quantity, essential, 'rule_engine');
+  const femaleTravelers = Math.max(0, trip.female_travelers ?? 0);
+  if (femaleTravelers > 0) {
+    for (const [category, itemName, quantity, essential, quantityScope] of FEMALE_TRAVELER_RULES) {
+      mergeRecommendation(
+        recommendations,
+        category,
+        itemName,
+        fixedQuantity(quantity, quantityScope, femaleTravelers),
+        essential,
+        'rule_engine',
+      );
     }
   }
 
   for (const condition of weatherConditions) {
-    for (const [category, itemName, quantity, essential] of WEATHER_RULES[condition] ?? []) {
-      mergeRecommendation(recommendations, category, itemName, quantity, essential, 'rule_engine');
+    for (const [category, itemName, quantity, essential, quantityScope] of WEATHER_RULES[condition] ?? []) {
+      mergeRecommendation(
+        recommendations,
+        category,
+        itemName,
+        fixedQuantity(quantity, quantityScope, travelers),
+        essential,
+        'rule_engine',
+      );
     }
   }
 
   for (const activityType of selectedActivityTypes) {
-    for (const [category, itemName, quantity, essential] of ACTIVITY_RULES[activityType] ?? []) {
-      mergeRecommendation(recommendations, category, itemName, quantity, essential, 'activity', activityType);
+    for (const [category, itemName, quantity, essential, quantityScope] of ACTIVITY_RULES[activityType] ?? []) {
+      mergeRecommendation(
+        recommendations,
+        category,
+        itemName,
+        fixedQuantity(quantity, quantityScope, travelers),
+        essential,
+        'activity',
+        activityType,
+      );
     }
   }
 
-  for (const [category, itemName, quantity, essential] of TRAVEL_METHOD_RULES[trip.travel_method] ?? []) {
-    mergeRecommendation(recommendations, category, itemName, quantity, essential, 'rule_engine');
+  for (const [category, itemName, quantity, essential, quantityScope] of TRAVEL_METHOD_RULES[trip.travel_method] ?? []) {
+    mergeRecommendation(
+      recommendations,
+      category,
+      itemName,
+      fixedQuantity(quantity, quantityScope, travelers),
+      essential,
+      'rule_engine',
+    );
   }
 
-  for (const [category, itemName, quantity, essential] of ACCOMMODATION_RULES[trip.accommodation] ?? []) {
-    mergeRecommendation(recommendations, category, itemName, quantity, essential, 'rule_engine');
+  for (const [category, itemName, quantity, essential, quantityScope] of ACCOMMODATION_RULES[trip.accommodation] ?? []) {
+    mergeRecommendation(
+      recommendations,
+      category,
+      itemName,
+      fixedQuantity(quantity, quantityScope, travelers),
+      essential,
+      'rule_engine',
+    );
   }
 
   return Array.from(recommendations.values());
@@ -414,11 +469,13 @@ export function packingActivityKeysForActivity(activity: {
   return Array.from(keys);
 }
 
-export function generateActivityPackingItems(activityType: string): PackingRecommendation[] {
-  return (ACTIVITY_RULES[activityType] ?? []).map(([category, item_name, quantity, essential]) => ({
+export function generateActivityPackingItems(activityType: string, travelers = 1): PackingRecommendation[] {
+  const travelerCount = Math.max(1, travelers || 1);
+
+  return (ACTIVITY_RULES[activityType] ?? []).map(([category, item_name, quantity, essential, quantityScope]) => ({
     category,
     item_name,
-    quantity,
+    quantity: fixedQuantity(quantity, quantityScope, travelerCount),
     essential,
     source: 'activity',
     activity_type: activityType,

@@ -114,7 +114,7 @@ function AuthGuard() {
     } else if (isAuthenticated && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [isAuthenticated, isLoading, segments]);
+  }, [isAuthenticated, isLoading, router, segments]);
 
   return null;
 }

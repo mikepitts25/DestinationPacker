@@ -19,6 +19,8 @@ The old `backend/` FastAPI app remains in the repo as reference during migration
 
 ## Mobile Setup
 
+For remote Supabase testing in Expo Go:
+
 ```bash
 cd mobile
 cp .env.example .env
@@ -26,7 +28,16 @@ npm install
 npm start
 ```
 
-Set these public Expo variables in `mobile/.env`:
+For local Supabase testing:
+
+```bash
+cd mobile
+cp .env.local.example .env
+npm install
+npm start
+```
+
+Set these public Expo variables in `mobile/.env` when overriding either setup:
 
 ```bash
 EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
@@ -34,6 +45,20 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
 Only the Supabase anon key belongs in the mobile app. Do not put service-role keys, Gemini keys, or provider secrets in Expo public env vars.
+
+## EAS Build Profiles
+
+`mobile/eas.json` defines `development`, `preview`, and `production` profiles that point at the remote Supabase project. The key in those profiles is a Supabase publishable key intended for client-side use.
+
+```bash
+cd mobile
+npm run build:preview:ios
+npm run build:preview:android
+npm run build:production:ios
+npm run build:production:android
+```
+
+Before the first EAS build, run `npx eas-cli init` from `mobile/`. EAS will add a real `expo.extra.eas.projectId` UUID to `mobile/app.json`.
 
 ## Supabase Setup
 
@@ -76,6 +101,7 @@ supabase secrets set OVERPASS_USER_AGENT="DestinationPacker/1.0 (you@example.com
 cd mobile
 npm run type-check
 npm test -- --watchAll=false
+npm run lint
 ```
 
 Rule-engine tests cover the deterministic free packing path: essentials, weather rules, activity rules, duration/traveler quantities, and duplicate merging.

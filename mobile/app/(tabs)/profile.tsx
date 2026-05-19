@@ -1,152 +1,261 @@
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Text, Avatar, Button, Divider, Switch, List } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { Text, Switch } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
-import { Colors, Spacing, Typography } from '@/constants/theme';
+import { useTrips } from '@/hooks/useTrips';
+import { Colors, Spacing, Radius } from '@/constants/theme';
+
+type SettingRowProps = {
+  emoji: string;
+  label: string;
+  description?: string;
+  onPress?: () => void;
+  right?: React.ReactNode;
+};
+
+function SettingRow({ emoji, label, description, onPress, right }: SettingRowProps) {
+  return (
+    <TouchableOpacity style={styles.settingRow} onPress={onPress} activeOpacity={onPress ? 0.7 : 1}>
+      <View style={styles.settingIconBox}>
+        <Text style={styles.settingEmoji}>{emoji}</Text>
+      </View>
+      <View style={styles.settingInfo}>
+        <Text style={styles.settingLabel}>{label}</Text>
+        {description ? <Text style={styles.settingDesc}>{description}</Text> : null}
+      </View>
+      {right ?? <Text style={styles.chevron}>›</Text>}
+    </TouchableOpacity>
+  );
+}
 
 export default function ProfileScreen() {
   const { user, isPremium, signOut } = useAuthStore();
+  const { data: trips } = useTrips();
+
+  const initials = ((user?.display_name ?? user?.email ?? 'U')[0] ?? 'U').toUpperCase();
+  const upcomingCount = trips?.filter(t => new Date(t.end_date) >= new Date()).length ?? 0;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* User info */}
-        <View style={styles.header}>
-          <Avatar.Text
-            size={72}
-            label={(user?.display_name ?? user?.email ?? 'U')[0].toUpperCase()}
-            style={{ backgroundColor: Colors.primary }}
-          />
-          <Text style={styles.name}>{user?.display_name ?? 'Traveler'}</Text>
-          <Text style={styles.email}>{user?.email ?? ''}</Text>
-          <View style={[styles.badge, isPremium ? styles.premiumBadge : styles.freeBadge]}>
-            <Text style={[styles.badgeText, isPremium && styles.premiumBadgeText]}>
-              {isPremium ? '⭐ Premium' : 'Free Plan'}
-            </Text>
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" />
+
+      {/* Dark gradient header */}
+      <SafeAreaView edges={['top']} style={styles.safeHeader}>
+        <LinearGradient
+          colors={[Colors.deepDark, Colors.primaryDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
+        >
+          {/* Avatar */}
+          <LinearGradient
+            colors={[Colors.gold, Colors.goldDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.avatar}
+          >
+            <Text style={styles.avatarText}>{initials}</Text>
+          </LinearGradient>
+
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{user?.display_name ?? 'Traveler'}</Text>
+            {isPremium && (
+              <View style={styles.proBadge}>
+                <Text style={styles.proBadgeText}>PRO</Text>
+              </View>
+            )}
           </View>
-        </View>
+          <Text style={styles.email}>{user?.email ?? ''}</Text>
+        </LinearGradient>
+      </SafeAreaView>
 
-        {/* Upgrade CTA for free users */}
-        {!isPremium && (
-          <TouchableOpacity style={styles.upgradeCard} onPress={() => router.push('/premium')}>
-            <Text style={styles.upgradeTitle}>Upgrade to Premium</Text>
-            <Text style={styles.upgradeSubtitle}>Ad-free • AI packing lists • Unlimited trips • Collaboration</Text>
-            <Text style={styles.upgradePrice}>From $3.99/month</Text>
-          </TouchableOpacity>
-        )}
+      {/* White cream body */}
+      <View style={styles.body}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Stats row */}
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statVal}>{trips?.length ?? 0}</Text>
+              <Text style={styles.statLabel}>Trips</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statVal}>{upcomingCount}</Text>
+              <Text style={styles.statLabel}>Upcoming</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statVal}>—</Text>
+              <Text style={styles.statLabel}>Items Packed</Text>
+            </View>
+          </View>
 
-        <View style={styles.section}>
-          <List.Section>
-            <List.Subheader style={styles.subheader}>Account</List.Subheader>
-            <List.Item
-              title="Edit Profile"
-              left={() => <List.Icon icon="account-edit" />}
-              onPress={() => {}}
-            />
-            <Divider />
-            <List.Item
-              title="Notifications"
+          {!isPremium && (
+            <TouchableOpacity onPress={() => router.push('/premium')} style={styles.upgradeCard}>
+              <LinearGradient
+                colors={[Colors.gold, Colors.goldDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.upgradeGradient}
+              >
+                <Text style={styles.upgradeTitle}>Upgrade to Premium ✨</Text>
+                <Text style={styles.upgradeSub}>Ad-free · AI packing lists · Unlimited trips</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {/* Account section */}
+          <Text style={styles.sectionLabel}>ACCOUNT</Text>
+          <View style={styles.card}>
+            <SettingRow emoji="✏️" label="Edit Profile" onPress={() => {}} />
+            <View style={styles.rowDivider} />
+            <SettingRow
+              emoji="🔔"
+              label="Notifications"
               description="Departure reminders"
-              left={() => <List.Icon icon="bell-outline" />}
-              right={() => <Switch value={true} onValueChange={() => {}} />}
+              right={<Switch value={true} onValueChange={() => {}} color={Colors.primary} />}
             />
-            <Divider />
-            <List.Item
-              title="Subscription"
+            <View style={styles.rowDivider} />
+            <SettingRow emoji="🛡️" label="Privacy" onPress={() => {}} />
+            <View style={styles.rowDivider} />
+            <SettingRow
+              emoji="⭐"
+              label="Subscription"
               description={isPremium ? 'Premium — manage billing' : 'Upgrade to Premium'}
-              left={() => <List.Icon icon="star-outline" color={isPremium ? Colors.premiumGold : undefined} />}
               onPress={() => router.push('/premium')}
             />
-          </List.Section>
+          </View>
 
-          <List.Section>
-            <List.Subheader style={styles.subheader}>Preferences</List.Subheader>
-            <List.Item
-              title="Default packing items"
-              description="Items always included in your lists"
-              left={() => <List.Icon icon="format-list-checks" />}
-              onPress={() => {}}
-            />
-            <Divider />
-            <List.Item
-              title="Travel interests"
-              description="Helps AI personalize suggestions"
-              left={() => <List.Icon icon="heart-outline" />}
-              onPress={() => {}}
-            />
-          </List.Section>
+          {/* App section */}
+          <Text style={styles.sectionLabel}>APP</Text>
+          <View style={styles.card}>
+            <SettingRow emoji="🌐" label="Language" onPress={() => {}} />
+            <View style={styles.rowDivider} />
+            <SettingRow emoji="🌙" label="Dark Mode" right={<Switch value={false} onValueChange={() => {}} color={Colors.primary} />} />
+            <View style={styles.rowDivider} />
+            <SettingRow emoji="ℹ️" label="About" onPress={() => {}} />
+          </View>
 
-          <List.Section>
-            <List.Subheader style={styles.subheader}>Support</List.Subheader>
-            <List.Item
-              title="Help & FAQ"
-              left={() => <List.Icon icon="help-circle-outline" />}
-              onPress={() => {}}
-            />
-            <Divider />
-            <List.Item
-              title="Rate the App"
-              left={() => <List.Icon icon="star-outline" />}
-              onPress={() => {}}
-            />
-            <Divider />
-            <List.Item
-              title="Privacy Policy"
-              left={() => <List.Icon icon="shield-outline" />}
-              onPress={() => {}}
-            />
-          </List.Section>
-        </View>
+          {/* Sign out */}
+          <TouchableOpacity style={styles.signOut} onPress={signOut} activeOpacity={0.8}>
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
 
-        <Button
-          mode="outlined"
-          onPress={signOut}
-          style={styles.signOutButton}
-          textColor={Colors.error}
-        >
-          Sign Out
-        </Button>
-
-        <Text style={styles.version}>DestinationPacker v1.0.0</Text>
-      </ScrollView>
-    </SafeAreaView>
+          <Text style={styles.version}>DestinationPacker v1.0.0</Text>
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  content: { paddingBottom: Spacing.xxl },
-  header: { alignItems: 'center', paddingVertical: Spacing.xl, backgroundColor: Colors.surface },
-  name: { ...Typography.h2, color: Colors.onSurface, marginTop: Spacing.sm },
-  email: { ...Typography.body, color: Colors.muted },
-  badge: {
-    marginTop: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 4,
-    borderRadius: 20,
+  root: { flex: 1, backgroundColor: Colors.deepDark },
+  safeHeader: { backgroundColor: 'transparent' },
+  header: {
+    alignItems: 'center',
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xl + 8,
+    paddingHorizontal: Spacing.lg,
+  },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
+  avatarText: { fontSize: 28, fontWeight: '800', color: '#FFFFFF' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  name: { fontSize: 18, fontWeight: '700', color: '#FFF9F4' },
+  proBadge: {
+    backgroundColor: Colors.gold,
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  proBadgeText: { fontSize: 9, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.8 },
+  email: { fontSize: 13, color: 'rgba(255,249,244,0.65)' },
+  body: {
+    flex: 1,
     backgroundColor: Colors.background,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -20,
+    overflow: 'hidden',
   },
-  freeBadge: {},
-  premiumBadge: { backgroundColor: '#fff8e1', borderColor: Colors.premiumGold },
-  badgeText: { ...Typography.label, color: Colors.muted },
-  premiumBadgeText: { color: '#f57f17' },
-  upgradeCard: {
-    margin: Spacing.md,
-    padding: Spacing.lg,
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
+  scroll: { paddingBottom: 120 },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
-  upgradeTitle: { ...Typography.h3, color: '#fff', marginBottom: 4 },
-  upgradeSubtitle: { ...Typography.caption, color: 'rgba(255,255,255,0.85)', marginBottom: Spacing.sm },
-  upgradePrice: { ...Typography.label, color: '#fff', fontWeight: '700' },
-  section: { backgroundColor: Colors.surface, marginTop: Spacing.sm },
-  subheader: { ...Typography.caption, color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
-  signOutButton: {
-    margin: Spacing.lg,
+  statItem: { flex: 1, alignItems: 'center' },
+  statVal: { fontSize: 22, fontWeight: '800', color: Colors.onSurface },
+  statLabel: { fontSize: 11, color: Colors.muted, marginTop: 2 },
+  statDivider: { width: 1, height: 36, backgroundColor: Colors.border },
+  upgradeCard: { marginHorizontal: Spacing.md, marginTop: Spacing.md, borderRadius: Radius.md, overflow: 'hidden' },
+  upgradeGradient: { padding: Spacing.md },
+  upgradeTitle: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
+  upgradeSub: { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.primary,
+    letterSpacing: 1.2,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xs,
+  },
+  card: {
+    marginHorizontal: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: Colors.cardShadow,
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  settingIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(10,147,150,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingEmoji: { fontSize: 16 },
+  settingInfo: { flex: 1 },
+  settingLabel: { fontSize: 15, fontWeight: '500', color: Colors.onSurface },
+  settingDesc: { fontSize: 12, color: Colors.muted, marginTop: 1 },
+  chevron: { fontSize: 20, color: '#B0C4C6' },
+  rowDivider: { height: 1, backgroundColor: '#F0F4F5', marginLeft: 60 },
+  signOut: {
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1.5,
     borderColor: Colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
-  version: { ...Typography.caption, color: Colors.muted, textAlign: 'center', marginBottom: Spacing.lg },
+  signOutText: { fontSize: 15, fontWeight: '600', color: Colors.error },
+  version: { fontSize: 12, color: Colors.muted, textAlign: 'center', marginTop: Spacing.lg, marginBottom: Spacing.md },
 });

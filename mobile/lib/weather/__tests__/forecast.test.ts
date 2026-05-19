@@ -1,4 +1,4 @@
-import { forecastDaysForTrip, parseOpenMeteoForecast } from '../forecast';
+import { forecastDaysForTrip, parseOpenMeteoForecast, unavailableForecast } from '../forecast';
 
 function isoDate(offsetDays: number): string {
   const date = new Date();
@@ -31,6 +31,22 @@ describe('Open-Meteo forecast parsing', () => {
     expect(forecast.conditions).not.toContain('rain');
     expect(forecast.conditions).not.toContain('snow');
     expect(forecast.days[0].rain_probability).toBe(10);
+  });
+
+  it('includes forecast source metadata on parsed forecasts', () => {
+    const forecast = parseOpenMeteoForecast('Lisbon', forecastFixture(), isoDate(1), isoDate(2));
+
+    expect(forecast.source.name).toBe('Open-Meteo');
+    expect(forecast.source.url).toBe('https://open-meteo.com/');
+    expect(forecast.updated_at).toEqual(expect.any(String));
+  });
+
+  it('includes forecast source metadata on unavailable forecasts', () => {
+    const forecast = unavailableForecast('Tokyo', 'Weather forecast is unavailable.');
+
+    expect(forecast.source.name).toBe('Open-Meteo');
+    expect(forecast.source.url).toBe('https://open-meteo.com/');
+    expect(forecast.updated_at).toEqual(expect.any(String));
   });
 
   it('uses today through the end date for an in-progress trip', () => {

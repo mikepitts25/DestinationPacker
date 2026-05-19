@@ -1,17 +1,22 @@
-import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
+import { MD3LightTheme } from 'react-native-paper';
 
 export const Colors = {
-  primary: '#1a73e8',
-  primaryDark: '#1557b0',
-  secondary: '#34a853',
-  accent: '#fbbc04',
-  error: '#ea4335',
-  surface: '#ffffff',
-  background: '#f8f9fa',
-  onSurface: '#202124',
-  muted: '#5f6368',
-  border: '#dadce0',
-  premiumGold: '#f9ab00',
+  // C2 Deep Tide palette
+  primary: '#0A9396',        // Teal Ocean
+  primaryDark: '#005F73',    // Sky Blue / deep teal
+  deepDark: '#002830',       // Near-black teal (headers)
+  gold: '#EE9B00',           // Summer Sun
+  goldDark: '#CC8400',
+  secondary: '#0A9396',
+  accent: '#EE9B00',
+  error: '#E04040',
+  surface: '#FFFFFF',
+  background: '#FFF9F4',     // White Cloud / cream
+  onSurface: '#002830',
+  muted: '#6B8A8C',
+  border: '#D0E8EA',
+  premiumGold: '#EE9B00',
+  cardShadow: 'rgba(0,40,48,0.08)',
 };
 
 export const lightTheme = {
@@ -23,15 +28,6 @@ export const lightTheme = {
     error: Colors.error,
     background: Colors.background,
     surface: Colors.surface,
-  },
-};
-
-export const darkTheme = {
-  ...MD3DarkTheme,
-  colors: {
-    ...MD3DarkTheme.colors,
-    primary: Colors.primary,
-    secondary: Colors.secondary,
   },
 };
 
