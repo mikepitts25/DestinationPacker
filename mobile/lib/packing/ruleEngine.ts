@@ -1,4 +1,4 @@
-import type { AccommodationType, ItemSource, TravelMethod } from '@/types';
+import type { AccommodationType, ItemSource, TravelMethod, TravelerType, TripLeg } from '@/types';
 
 export interface PackingTripContext {
   destination: string;
@@ -9,6 +9,10 @@ export interface PackingTripContext {
   travelers: number;
   male_travelers?: number;
   female_travelers?: number;
+  children?: number;
+  pets?: number;
+  has_laundry_access?: boolean;
+  legs?: TripLeg[];
 }
 
 export interface PackingRecommendation {
@@ -18,6 +22,7 @@ export interface PackingRecommendation {
   essential: boolean;
   source: ItemSource;
   activity_type?: string | null;
+  traveler_type: TravelerType;
 }
 
 type FixedQuantityScope = 'shared' | 'per_traveler';
@@ -27,6 +32,7 @@ type FixedRule = [
   quantity: number,
   essential: boolean,
   quantityScope?: FixedQuantityScope,
+  travelerType?: TravelerType,
 ];
 type FormulaRule = [minDays: number, category: string, itemName: string, formula: string, essential: boolean];
 
@@ -63,9 +69,32 @@ const DURATION_RULES: FormulaRule[] = [
 ];
 
 const FEMALE_TRAVELER_RULES: FixedRule[] = [
-  ['Clothing', 'Bras', 2, false, 'per_traveler'],
-  ['Toiletries', 'Makeup / cosmetics bag', 1, false],
-  ['Toiletries', 'Feminine hygiene products', 1, false],
+  ['Clothing', 'Bras', 2, false, 'per_traveler', 'female'],
+  ['Clothing', 'Dresses / skirts', 1, false, 'per_traveler', 'female'],
+  ['Toiletries', 'Makeup / cosmetics bag', 1, false, 'shared', 'female'],
+  ['Toiletries', 'Feminine hygiene products', 1, false, 'shared', 'female'],
+];
+
+const MALE_TRAVELER_RULES: FixedRule[] = [
+  ['Toiletries', 'Razors / shaving kit', 1, false, 'shared', 'male'],
+  ['Clothing', 'Collared shirt / smart casual top', 1, false, 'per_traveler', 'male'],
+];
+
+const CHILD_RULES: FixedRule[] = [
+  ['Health', 'Kids sunscreen', 1, true, 'shared', 'child'],
+  ['Misc', 'Child travel entertainment', 1, false, 'per_traveler', 'child'],
+  ['Misc', 'Snacks for children', 3, false, 'per_traveler', 'child'],
+  ['Health', 'Child medications', 1, true, 'shared', 'child'],
+  ['Toiletries', 'Diapers / pull-ups if needed', 1, false, 'per_traveler', 'child'],
+  ['Toiletries', 'Formula or child feeding supplies if needed', 1, false, 'shared', 'child'],
+];
+
+const PET_RULES: FixedRule[] = [
+  ['Gear', 'Pet leash', 1, true, 'per_traveler', 'pet'],
+  ['Gear', 'Pet food bowls', 1, true, 'per_traveler', 'pet'],
+  ['Misc', 'Pet food and treats', 1, true, 'shared', 'pet'],
+  ['Documents', 'Pet vaccination / travel documents', 1, true, 'shared', 'pet'],
+  ['Health', 'Pet medications', 1, false, 'shared', 'pet'],
 ];
 
 const WEATHER_RULES: Record<string, FixedRule[]> = {
@@ -216,6 +245,24 @@ const ACTIVITY_RULES: Record<string, FixedRule[]> = {
     ['Misc', 'Ziplock bags (to protect food souvenirs)', 3, false],
     ['Documents', 'Customs declaration info (know your duty-free limits)', 1, false],
   ],
+  family: [
+    ['Misc', 'Child travel entertainment', 1, false, 'per_traveler', 'child'],
+    ['Health', 'Kids sunscreen', 1, true, 'shared', 'child'],
+    ['Misc', 'Compact stroller or carrier if needed', 1, false, 'shared', 'child'],
+  ],
+  adventure: [
+    ['Gear', 'Activity waiver / booking confirmations', 1, true],
+    ['Health', 'Compact first aid kit', 1, true],
+    ['Gear', 'Protective gloves', 1, false, 'per_traveler'],
+  ],
+  shopping: [
+    ['Misc', 'Extra foldable tote bag', 1, false],
+    ['Documents', 'Receipts envelope for customs', 1, false],
+  ],
+  sports: [
+    ['Clothing', 'Athletic wear', 2, false, 'per_traveler'],
+    ['Misc', 'Reusable water bottle', 1, true, 'per_traveler'],
+  ],
 };
 
 const TRAVEL_METHOD_RULES: Record<string, FixedRule[]> = {
@@ -323,8 +370,9 @@ function mergeRecommendation(
   essential: boolean,
   source: ItemSource,
   activity_type: string | null = null,
+  traveler_type: TravelerType = 'shared',
 ) {
-  const key = item_name.trim().toLowerCase();
+  const key = `${traveler_type}:${item_name.trim().toLowerCase()}`;
   const existing = recommendations.get(key);
 
   if (!existing) {
@@ -335,6 +383,7 @@ function mergeRecommendation(
       essential,
       source,
       activity_type,
+      traveler_type,
     });
     return;
   }
@@ -345,7 +394,26 @@ function mergeRecommendation(
     essential: existing.essential || essential,
     source: existing.source === source ? existing.source : existing.source,
     activity_type: existing.activity_type ?? activity_type,
+    traveler_type: existing.traveler_type,
   });
+}
+
+function tripLegs(trip: PackingTripContext): TripLeg[] {
+  return trip.legs && trip.legs.length > 0
+    ? trip.legs
+    : [{
+      destination: trip.destination,
+      start_date: trip.start_date,
+      end_date: trip.end_date,
+      accommodation: trip.accommodation,
+      travel_method: trip.travel_method,
+    }];
+}
+
+function humanTravelers(trip: PackingTripContext): number {
+  const adults = Math.max(0, trip.male_travelers ?? 0) + Math.max(0, trip.female_travelers ?? 0);
+  const children = Math.max(0, trip.children ?? 0);
+  return Math.max(1, trip.travelers || 1, adults + children);
 }
 
 export function generatePackingList(
@@ -354,10 +422,11 @@ export function generatePackingList(
   selectedActivityTypes: string[] = [],
 ): PackingRecommendation[] {
   const days = durationDays(trip.start_date, trip.end_date);
-  const travelers = Math.max(1, trip.travelers || 1);
+  const packingDays = trip.has_laundry_access ? Math.min(days, 7) : days;
+  const travelers = humanTravelers(trip);
   const recommendations = new Map<string, PackingRecommendation>();
 
-  for (const [category, itemName, quantity, essential, quantityScope] of ALWAYS_RULES) {
+  for (const [category, itemName, quantity, essential, quantityScope, travelerType] of ALWAYS_RULES) {
     mergeRecommendation(
       recommendations,
       category,
@@ -365,6 +434,8 @@ export function generatePackingList(
       fixedQuantity(quantity, quantityScope, travelers),
       essential,
       'rule_engine',
+      null,
+      travelerType ?? 'shared',
     );
   }
 
@@ -374,16 +445,32 @@ export function generatePackingList(
         recommendations,
         category,
         itemName,
-        evalQuantity(formula, days, travelers),
+        evalQuantity(formula, packingDays, travelers),
         essential,
         'rule_engine',
       );
     }
   }
 
+  const maleTravelers = Math.max(0, trip.male_travelers ?? 0);
+  if (maleTravelers > 0) {
+    for (const [category, itemName, quantity, essential, quantityScope, travelerType] of MALE_TRAVELER_RULES) {
+      mergeRecommendation(
+        recommendations,
+        category,
+        itemName,
+        fixedQuantity(quantity, quantityScope, maleTravelers),
+        essential,
+        'rule_engine',
+        null,
+        travelerType ?? 'male',
+      );
+    }
+  }
+
   const femaleTravelers = Math.max(0, trip.female_travelers ?? 0);
   if (femaleTravelers > 0) {
-    for (const [category, itemName, quantity, essential, quantityScope] of FEMALE_TRAVELER_RULES) {
+    for (const [category, itemName, quantity, essential, quantityScope, travelerType] of FEMALE_TRAVELER_RULES) {
       mergeRecommendation(
         recommendations,
         category,
@@ -391,12 +478,46 @@ export function generatePackingList(
         fixedQuantity(quantity, quantityScope, femaleTravelers),
         essential,
         'rule_engine',
+        null,
+        travelerType ?? 'female',
+      );
+    }
+  }
+
+  const children = Math.max(0, trip.children ?? 0);
+  if (children > 0) {
+    for (const [category, itemName, quantity, essential, quantityScope, travelerType] of CHILD_RULES) {
+      mergeRecommendation(
+        recommendations,
+        category,
+        itemName,
+        fixedQuantity(quantity, quantityScope, children),
+        essential,
+        'rule_engine',
+        null,
+        travelerType ?? 'child',
+      );
+    }
+  }
+
+  const pets = Math.max(0, trip.pets ?? 0);
+  if (pets > 0) {
+    for (const [category, itemName, quantity, essential, quantityScope, travelerType] of PET_RULES) {
+      mergeRecommendation(
+        recommendations,
+        category,
+        itemName,
+        fixedQuantity(quantity, quantityScope, pets),
+        essential,
+        'rule_engine',
+        null,
+        travelerType ?? 'pet',
       );
     }
   }
 
   for (const condition of weatherConditions) {
-    for (const [category, itemName, quantity, essential, quantityScope] of WEATHER_RULES[condition] ?? []) {
+    for (const [category, itemName, quantity, essential, quantityScope, travelerType] of WEATHER_RULES[condition] ?? []) {
       mergeRecommendation(
         recommendations,
         category,
@@ -404,12 +525,14 @@ export function generatePackingList(
         fixedQuantity(quantity, quantityScope, travelers),
         essential,
         'rule_engine',
+        null,
+        travelerType ?? 'shared',
       );
     }
   }
 
   for (const activityType of selectedActivityTypes) {
-    for (const [category, itemName, quantity, essential, quantityScope] of ACTIVITY_RULES[activityType] ?? []) {
+    for (const [category, itemName, quantity, essential, quantityScope, travelerType] of ACTIVITY_RULES[activityType] ?? []) {
       mergeRecommendation(
         recommendations,
         category,
@@ -418,30 +541,38 @@ export function generatePackingList(
         essential,
         'activity',
         activityType,
+        travelerType ?? 'shared',
       );
     }
   }
 
-  for (const [category, itemName, quantity, essential, quantityScope] of TRAVEL_METHOD_RULES[trip.travel_method] ?? []) {
-    mergeRecommendation(
-      recommendations,
-      category,
-      itemName,
-      fixedQuantity(quantity, quantityScope, travelers),
-      essential,
-      'rule_engine',
-    );
-  }
+  const legs = tripLegs(trip);
+  for (const leg of legs) {
+    for (const [category, itemName, quantity, essential, quantityScope, travelerType] of TRAVEL_METHOD_RULES[leg.travel_method] ?? []) {
+      mergeRecommendation(
+        recommendations,
+        category,
+        itemName,
+        fixedQuantity(quantity, quantityScope, travelers),
+        essential,
+        'rule_engine',
+        null,
+        travelerType ?? 'shared',
+      );
+    }
 
-  for (const [category, itemName, quantity, essential, quantityScope] of ACCOMMODATION_RULES[trip.accommodation] ?? []) {
-    mergeRecommendation(
-      recommendations,
-      category,
-      itemName,
-      fixedQuantity(quantity, quantityScope, travelers),
-      essential,
-      'rule_engine',
-    );
+    for (const [category, itemName, quantity, essential, quantityScope, travelerType] of ACCOMMODATION_RULES[leg.accommodation] ?? []) {
+      mergeRecommendation(
+        recommendations,
+        category,
+        itemName,
+        fixedQuantity(quantity, quantityScope, travelers),
+        essential,
+        'rule_engine',
+        null,
+        travelerType ?? 'shared',
+      );
+    }
   }
 
   return Array.from(recommendations.values());
@@ -458,6 +589,9 @@ export function packingActivityKeysForActivity(activity: {
   if (['beach', 'water', 'snow', 'business', 'wellness', 'outdoor', 'dining', 'nightlife', 'souvenirs'].includes(activity.activity_type)) {
     keys.add(activity.activity_type);
   }
+  if (['family', 'adventure', 'shopping', 'sports'].includes(activity.activity_type)) {
+    keys.add(activity.activity_type);
+  }
 
   if (activity.activity_type === 'cultural') {
     if (/(theater|theatre|opera|ballet|concert|cinema|show)/.test(text)) keys.add('theater');
@@ -472,13 +606,14 @@ export function packingActivityKeysForActivity(activity: {
 export function generateActivityPackingItems(activityType: string, travelers = 1): PackingRecommendation[] {
   const travelerCount = Math.max(1, travelers || 1);
 
-  return (ACTIVITY_RULES[activityType] ?? []).map(([category, item_name, quantity, essential, quantityScope]) => ({
+  return (ACTIVITY_RULES[activityType] ?? []).map(([category, item_name, quantity, essential, quantityScope, travelerType]) => ({
     category,
     item_name,
     quantity: fixedQuantity(quantity, quantityScope, travelerCount),
     essential,
     source: 'activity',
     activity_type: activityType,
+    traveler_type: travelerType ?? 'shared',
   }));
 }
 

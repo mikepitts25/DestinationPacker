@@ -6,6 +6,7 @@ import { useTrips, useDeleteTrip } from '@/hooks/useTrips';
 import { useAuthStore } from '@/stores/authStore';
 import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { FREE_TRIP_LIMIT } from '@/constants/config';
+import { formatTripDurationBadge, formatTripRoute } from '@/lib/trips/tripDisplay';
 import type { Trip } from '@/types';
 
 export default function HomeScreen() {
@@ -73,7 +74,7 @@ export default function HomeScreen() {
               style={styles.premiumGradient}
             >
               <Text style={styles.premiumBannerText}>
-                ✨ Upgrade to Premium — AI packing, unlimited trips & more
+                ✨ Create unlimited trips with Premium
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -129,7 +130,6 @@ const STAY_EMOJI: Record<string, string> = {
 };
 
 function TripCard({ trip, past, onDelete }: { trip: Trip; past?: boolean; onDelete: () => void }) {
-  const nights = trip.duration_days - 1;
   const startStr = new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const endStr = new Date(trip.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -142,11 +142,11 @@ function TripCard({ trip, past, onDelete }: { trip: Trip; past?: boolean; onDele
     >
       <View style={styles.cardTop}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.destination}>{trip.destination}</Text>
+          <Text style={styles.destination}>{formatTripRoute(trip)}</Text>
           <Text style={styles.dates}>{startStr} — {endStr}</Text>
         </View>
         <View style={styles.nightsBadge}>
-          <Text style={styles.nightsText}>{nights > 0 ? `${nights}N` : '1D'}</Text>
+          <Text style={styles.nightsText}>{formatTripDurationBadge(trip.duration_days)}</Text>
         </View>
       </View>
       <View style={styles.tagRow}>
@@ -160,9 +160,9 @@ function TripCard({ trip, past, onDelete }: { trip: Trip; past?: boolean; onDele
             {STAY_EMOJI[trip.accommodation] ?? '🏨'} {trip.accommodation}
           </Text>
         </View>
-        {trip.travelers > 1 && (
+        {(trip.travelers > 1 || trip.pets > 0) && (
           <View style={styles.tag}>
-            <Text style={styles.tagText}>👥 {trip.travelers}</Text>
+            <Text style={styles.tagText}>👥 {trip.travelers}{trip.pets > 0 ? ` + 🐾 ${trip.pets}` : ''}</Text>
           </View>
         )}
       </View>
@@ -211,14 +211,16 @@ const styles = StyleSheet.create({
   nightsBadge: {
     backgroundColor: Colors.background,
     borderRadius: Radius.full,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 4,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   nightsText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
   tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.background,
     borderRadius: Radius.full,
     paddingHorizontal: 10,
@@ -226,7 +228,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  tagText: { fontSize: 12, color: Colors.onSurface },
+  tagText: { fontSize: 12, color: Colors.onSurface, textAlignVertical: 'center' },
   empty: { alignItems: 'center', paddingVertical: Spacing.xxl },
   emptyEmoji: { fontSize: 56, marginBottom: Spacing.md },
   emptyText: { ...Typography.body, color: Colors.muted },

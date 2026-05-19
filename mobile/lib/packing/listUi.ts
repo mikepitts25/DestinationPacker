@@ -1,4 +1,4 @@
-import type { ItemSource, PackingItem } from '@/types';
+import type { ItemSource, PackingItem, TravelerType } from '@/types';
 
 export type PackingGroup = {
   category: string;
@@ -15,7 +15,22 @@ export type RestorePackingItemInput = {
   packed: boolean;
   essential: boolean;
   source: ItemSource;
+  traveler_type: TravelerType;
 };
+
+export type PackingTravelerSection = {
+  travelerType: TravelerType;
+  title: string;
+  groups: PackingGroup[];
+};
+
+const TRAVELER_SECTION_ORDER: { travelerType: TravelerType; title: string }[] = [
+  { travelerType: 'male', title: 'Adult (Male)' },
+  { travelerType: 'female', title: 'Adult (Female)' },
+  { travelerType: 'child', title: 'Children' },
+  { travelerType: 'pet', title: 'Pets' },
+  { travelerType: 'shared', title: 'Shared' },
+];
 
 export function normalizeQuantityInput(value: string): number {
   const quantity = parseInt(value, 10);
@@ -42,6 +57,24 @@ export function buildPackingGroups(
   });
 }
 
+export function buildPackingTravelerSections(
+  categories: string[],
+  items: PackingItem[],
+  hidePacked: boolean,
+): PackingTravelerSection[] {
+  return TRAVELER_SECTION_ORDER.flatMap(({ travelerType, title }) => {
+    const sectionItems = items.filter((item) => item.traveler_type === travelerType);
+    const groups = buildPackingGroups(categories, sectionItems, hidePacked);
+    if (groups.length === 0) return [];
+
+    return [{
+      travelerType,
+      title,
+      groups,
+    }];
+  });
+}
+
 export function itemToRestoreInput(item: PackingItem): RestorePackingItemInput {
   return {
     activity_id: item.activity_id,
@@ -51,5 +84,6 @@ export function itemToRestoreInput(item: PackingItem): RestorePackingItemInput {
     packed: item.packed,
     essential: item.essential,
     source: item.source,
+    traveler_type: item.traveler_type,
   };
 }

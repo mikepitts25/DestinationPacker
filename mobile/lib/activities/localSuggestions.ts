@@ -1,11 +1,12 @@
 import type { Activity, ActivityType } from '@/types';
 
 export type ActivitySuggestion =
-  Omit<Activity, 'id' | 'trip_id' | 'selected' | 'rating' | 'review_count' | 'rating_source'>
+  Omit<Activity, 'id' | 'trip_id' | 'selected' | 'rating' | 'review_count' | 'rating_source' | 'distance_from_center_km'>
   & {
     rating?: number | null;
     review_count?: number | null;
     rating_source?: string | null;
+    distance_from_center_km?: number | null;
   };
 
 type LocalSuggestion = {

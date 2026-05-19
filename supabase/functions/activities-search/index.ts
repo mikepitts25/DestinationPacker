@@ -19,17 +19,39 @@ const admin = createClient(supabaseUrl, serviceRoleKey);
 type OverpassElement = {
   id?: unknown;
   type?: unknown;
+  lat?: unknown;
+  lon?: unknown;
+  center?: { lat?: unknown; lon?: unknown };
   tags?: Record<string, string>;
 };
 
 const interestActivityTypes: Record<string, string[]> = {
-  beaches: ["beach", "water"],
+  hiking: ["outdoor"],
+  cycling: ["outdoor", "sports"],
+  surfing: ["water", "beach"],
+  skiing_snowboarding: ["snow", "sports"],
+  scuba_diving: ["water"],
+  rock_climbing: ["outdoor", "adventure"],
   museums: ["cultural"],
-  nightlife: ["nightlife"],
-  dining: ["dining"],
-  outdoors: ["outdoor", "sports"],
-  wellness: ["wellness"],
-  shopping: ["shopping", "souvenirs"],
+  art_galleries: ["cultural"],
+  historical_sites: ["cultural"],
+  architecture: ["cultural"],
+  local_markets: ["shopping", "souvenirs"],
+  fine_dining: ["dining"],
+  street_food: ["dining"],
+  wine_tasting: ["dining"],
+  craft_beer: ["nightlife", "dining"],
+  nightclubs: ["nightlife"],
+  live_music: ["nightlife", "cultural"],
+  spa_wellness: ["wellness"],
+  beach_pool: ["beach", "water"],
+  yoga_retreats: ["wellness"],
+  theme_parks: ["family", "outdoor"],
+  zoos_aquariums: ["family", "outdoor"],
+  kid_friendly: ["family"],
+  extreme_sports: ["adventure", "sports"],
+  safari: ["adventure", "outdoor"],
+  backpacking: ["outdoor", "adventure"],
 };
 
 async function readCache(cacheKey: string) {
@@ -68,7 +90,7 @@ function classifyTags(tags: Record<string, string>): string {
       tourism,
     )
   ) return "cultural";
-  if (["zoo", "theme_park", "aquarium"].includes(tourism)) return "outdoor";
+  if (["zoo", "theme_park", "aquarium"].includes(tourism)) return "family";
   if (["park", "garden", "nature_reserve"].includes(leisure)) return "outdoor";
   if (leisure === "beach_resort" || natural === "beach") return "beach";
   if (["sports_centre", "stadium", "water_park"].includes(leisure)) {
@@ -84,6 +106,24 @@ function classifyTags(tags: Record<string, string>): string {
   }
   if (["theatre", "cinema"].includes(amenity)) return "cultural";
   return "cultural";
+}
+
+function distanceKm(fromLat: number, fromLon: number, toLat: number, toLon: number) {
+  const earthKm = 6371;
+  const dLat = (toLat - fromLat) * Math.PI / 180;
+  const dLon = (toLon - fromLon) * Math.PI / 180;
+  const lat1 = fromLat * Math.PI / 180;
+  const lat2 = toLat * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return earthKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function elementCoordinates(element: OverpassElement) {
+  const lat = Number(element.lat ?? element.center?.lat);
+  const lon = Number(element.lon ?? element.center?.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { lat, lon };
 }
 
 function normalizeInterests(value: unknown): string[] {
@@ -110,6 +150,10 @@ function fallbackActivities(destination: string, interests: string[] = []) {
       source: "suggested",
       external_id: null,
       photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
     },
     {
       activity_name: "Visit local museums",
@@ -118,6 +162,10 @@ function fallbackActivities(destination: string, interests: string[] = []) {
       source: "suggested",
       external_id: null,
       photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
     },
     {
       activity_name: "Try local cuisine",
@@ -126,6 +174,10 @@ function fallbackActivities(destination: string, interests: string[] = []) {
       source: "suggested",
       external_id: null,
       photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
     },
     {
       activity_name: "Day hike or nature walk",
@@ -134,6 +186,10 @@ function fallbackActivities(destination: string, interests: string[] = []) {
       source: "suggested",
       external_id: null,
       photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
     },
     {
       activity_name: "Beach or waterfront time",
@@ -143,6 +199,10 @@ function fallbackActivities(destination: string, interests: string[] = []) {
       source: "suggested",
       external_id: null,
       photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
     },
     {
       activity_name: "Evening drinks or club night",
@@ -152,6 +212,10 @@ function fallbackActivities(destination: string, interests: string[] = []) {
       source: "suggested",
       external_id: null,
       photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
     },
     {
       activity_name: "Spa, wellness, or fitness session",
@@ -161,6 +225,10 @@ function fallbackActivities(destination: string, interests: string[] = []) {
       source: "suggested",
       external_id: null,
       photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
     },
     {
       activity_name: "Local markets and shopping",
@@ -169,6 +237,10 @@ function fallbackActivities(destination: string, interests: string[] = []) {
       source: "suggested",
       external_id: null,
       photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
     },
   ];
 
@@ -244,6 +316,9 @@ async function searchActivities(
     const activityType = classifyTags(tags);
     if (!activityMatchesInterests(activityType, interests)) return [];
 
+    const coordinates = elementCoordinates(element);
+    const distance = coordinates ? distanceKm(lat, lon, coordinates.lat, coordinates.lon) : null;
+
     return [{
       activity_name: String(name),
       activity_type: activityType,
@@ -251,7 +326,15 @@ async function searchActivities(
       source: "openstreetmap",
       external_id: `osm:${element.type ?? "nwr"}:${element.id}`,
       photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: distance === null ? null : Math.round(distance * 10) / 10,
     }];
+  }).sort((a, b) => {
+    if (a.distance_from_center_km === null) return 1;
+    if (b.distance_from_center_km === null) return -1;
+    return a.distance_from_center_km - b.distance_from_center_km;
   }).slice(0, 18);
 
   const payload = activities.length > 0

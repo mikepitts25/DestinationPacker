@@ -21,6 +21,8 @@ const ACTIVITY_EMOJI: Record<ActivityType, string> = {
   wellness: '🧘',
   shopping: '🛍️',
   souvenirs: '🎁',
+  family: '🎢',
+  adventure: '🧗',
 };
 
 export default function ActivitiesScreen() {
@@ -64,7 +66,7 @@ export default function ActivitiesScreen() {
         ListHeaderComponent={
           <View>
             <Text style={styles.hint}>
-              Select activities to automatically add required gear to your packing list.
+              Select real attractions and venues to automatically add required gear to your packing list.
             </Text>
             {!isPremium && (
               <TouchableOpacity
@@ -72,7 +74,7 @@ export default function ActivitiesScreen() {
                 onPress={() => router.push('/premium')}
               >
                 <Text style={styles.aiTeaserText}>
-                  ✨ Premium: Get AI-powered personalized activity recommendations
+                  ✨ Premium: Create unlimited trips with AI packing support
                 </Text>
               </TouchableOpacity>
             )}
@@ -133,6 +135,9 @@ function ActivityCard({
         </Chip>
         {ratingText && (
           <Text style={styles.ratingText}>{ratingText}</Text>
+        )}
+        {activity.distance_from_center_km !== null && (
+          <Text style={styles.distanceText}>{activity.distance_from_center_km.toFixed(1)} km from center</Text>
         )}
         {activity.description && (
           <Text style={styles.description} numberOfLines={3}>
@@ -200,6 +205,7 @@ const styles = StyleSheet.create({
   typeChip: { backgroundColor: Colors.background, marginBottom: 4, alignSelf: 'flex-start' },
   typeChipText: { fontSize: 10, color: Colors.muted, lineHeight: 14 },
   ratingText: { ...Typography.caption, color: Colors.primary, marginBottom: 4, fontWeight: '600' },
+  distanceText: { ...Typography.caption, color: Colors.muted, marginBottom: 4, fontWeight: '600' },
   description: { ...Typography.caption, color: Colors.muted },
   empty: { alignItems: 'center', paddingVertical: Spacing.xxl },
   emptyEmoji: { fontSize: 48, marginBottom: Spacing.md },

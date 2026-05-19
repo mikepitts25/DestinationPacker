@@ -94,6 +94,63 @@ describe('packing rule engine', () => {
     expect(items.find((item) => item.item_name === 'Sunscreen SPF 50+')?.quantity).toBe(1);
   });
 
+  it('tags personal, child, pet, and shared items by traveler type', () => {
+    const items = generatePackingList({
+      ...baseTrip,
+      travelers: 4,
+      male_travelers: 1,
+      female_travelers: 1,
+      children: 1,
+      pets: 1,
+    }, ['hot'], ['beach']);
+
+    expect(items.find((item) => item.item_name === 'Passport or ID')?.traveler_type).toBe('shared');
+    expect(items.find((item) => item.item_name === 'Razors / shaving kit')?.traveler_type).toBe('male');
+    expect(items.find((item) => item.item_name === 'Bras')?.traveler_type).toBe('female');
+    expect(items.find((item) => item.item_name === 'Kids sunscreen')?.traveler_type).toBe('child');
+    expect(items.find((item) => item.item_name === 'Pet leash')?.traveler_type).toBe('pet');
+  });
+
+  it('uses all trip legs when adding travel and accommodation packing rules', () => {
+    const items = generatePackingList({
+      ...baseTrip,
+      legs: [
+        {
+          destination: 'Paris, France',
+          start_date: '2026-06-01',
+          end_date: '2026-06-03',
+          travel_method: 'flight',
+          accommodation: 'hotel',
+        },
+        {
+          destination: 'Chamonix, France',
+          start_date: '2026-06-04',
+          end_date: '2026-06-07',
+          travel_method: 'train',
+          accommodation: 'camping',
+        },
+      ],
+    });
+
+    expect(names(items)).toContain('Printed boarding passes (backup)');
+    expect(names(items)).toContain('Printed tickets (backup)');
+    expect(names(items)).toContain('Tent');
+    expect(names(items)).toContain('Sleeping bag');
+  });
+
+  it('caps clothing quantities to about a week when laundry is available', () => {
+    const items = generatePackingList({
+      ...baseTrip,
+      start_date: '2026-06-01',
+      end_date: '2026-06-20',
+      travelers: 2,
+      has_laundry_access: true,
+    });
+
+    expect(items.find((item) => item.item_name === 'Underwear')?.quantity).toBe(16);
+    expect(items.find((item) => item.item_name === 'T-shirts / tops')?.quantity).toBe(14);
+  });
+
   it('adds female traveler personal care items without changing traveler quantity scaling', () => {
     const items = generatePackingList({
       ...baseTrip,

@@ -9,7 +9,7 @@ import { Colors, Spacing, Typography } from '@/constants/theme';
 const FEATURES = [
   { icon: '🚫', title: 'Ad-free experience', free: false, premium: true },
   { icon: '🤖', title: 'AI-powered packing lists', description: 'Gemini-enhanced suggestions', free: false, premium: true },
-  { icon: '✈️', title: 'Saved trips', free: '3 max', premium: 'Unlimited' },
+  { icon: '✈️', title: 'Saved trips', description: 'Your second trip requires Premium', free: '1 max', premium: 'Unlimited' },
   { icon: '🗺️', title: 'AI activity recommendations', description: 'Curated for your interests', free: false, premium: true },
   { icon: '👥', title: 'Trip collaboration', description: 'Share & edit with travel companions', free: false, premium: true },
   { icon: '📤', title: 'Export packing list', description: 'PDF & share via messaging', free: false, premium: true },
@@ -49,7 +49,7 @@ export default function PremiumScreen() {
           <Text style={styles.heroEmoji}>⭐</Text>
           <Text style={styles.heroTitle}>DestinationPacker Premium</Text>
           <Text style={styles.heroSubtitle}>
-            Pack smarter. Travel better.
+            Create unlimited trips with Premium.
           </Text>
         </View>
 

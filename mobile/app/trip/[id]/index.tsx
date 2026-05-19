@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTrip, useDeleteTrip } from '@/hooks/useTrips';
 import { Colors, Spacing } from '@/constants/theme';
+import { formatTripDurationBadge, formatTripRoute } from '@/lib/trips/tripDisplay';
 import PackingScreen from './packing';
 import ActivitiesScreen from './activities';
 import WeatherScreen from './weather';
@@ -48,7 +49,7 @@ export default function TripDetailScreen() {
 
   const startStr = new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const endStr = new Date(trip.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const nights = trip.duration_days - 1;
+  const durationLabel = formatTripDurationBadge(trip.duration_days);
 
   return (
     <View style={styles.root}>
@@ -69,8 +70,8 @@ export default function TripDetailScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerInfo}>
-            <Text style={styles.destination} numberOfLines={1}>{trip.destination}</Text>
-            <Text style={styles.dates}>{startStr} – {endStr} · {nights} nights</Text>
+            <Text style={styles.destination} numberOfLines={1}>{formatTripRoute(trip)}</Text>
+            <Text style={styles.dates}>{startStr} – {endStr} · {durationLabel}</Text>
           </View>
 
           <TouchableOpacity

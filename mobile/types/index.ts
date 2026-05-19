@@ -11,6 +11,17 @@ export type AccommodationType =
 
 export type TravelMethod = 'flight' | 'road_trip' | 'train' | 'cruise' | 'backpacking';
 
+export interface TripLeg {
+  destination: string;
+  travel_method: TravelMethod;
+  accommodation: AccommodationType;
+  start_date: string;
+  end_date: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  country_code?: string | null;
+}
+
 export type ActivityType =
   | 'outdoor'
   | 'water'
@@ -23,18 +34,40 @@ export type ActivityType =
   | 'business'
   | 'wellness'
   | 'shopping'
-  | 'souvenirs';
+  | 'souvenirs'
+  | 'family'
+  | 'adventure';
 
 export type ActivityInterest =
-  | 'beaches'
+  | 'hiking'
+  | 'cycling'
+  | 'surfing'
+  | 'skiing_snowboarding'
+  | 'scuba_diving'
+  | 'rock_climbing'
   | 'museums'
-  | 'nightlife'
-  | 'dining'
-  | 'outdoors'
-  | 'wellness'
-  | 'shopping';
+  | 'art_galleries'
+  | 'historical_sites'
+  | 'architecture'
+  | 'local_markets'
+  | 'fine_dining'
+  | 'street_food'
+  | 'wine_tasting'
+  | 'craft_beer'
+  | 'nightclubs'
+  | 'live_music'
+  | 'spa_wellness'
+  | 'beach_pool'
+  | 'yoga_retreats'
+  | 'theme_parks'
+  | 'zoos_aquariums'
+  | 'kid_friendly'
+  | 'extreme_sports'
+  | 'safari'
+  | 'backpacking';
 
 export type ItemSource = 'rule_engine' | 'ai' | 'activity' | 'user_added';
+export type TravelerType = 'male' | 'female' | 'child' | 'pet' | 'shared';
 
 export interface User {
   id: string;
@@ -59,8 +92,12 @@ export interface Trip {
   travelers: number;
   male_travelers: number;
   female_travelers: number;
+  children: number;
+  pets: number;
   activity_interests: ActivityInterest[];
   notes: string | null;
+  has_laundry_access: boolean;
+  legs: TripLeg[];
   duration_days: number;
   created_at: string;
 }
@@ -75,6 +112,7 @@ export interface PackingItem {
   packed: boolean;
   essential: boolean;
   source: ItemSource;
+  traveler_type: TravelerType;
 }
 
 export interface PackingList {
@@ -97,6 +135,7 @@ export interface Activity {
   rating: number | null;
   review_count: number | null;
   rating_source: string | null;
+  distance_from_center_km: number | null;
   selected: boolean;
 }
 
@@ -138,6 +177,10 @@ export interface TripCreate {
   travelers: number;
   male_travelers?: number;
   female_travelers?: number;
+  children?: number;
+  pets?: number;
   activity_interests?: ActivityInterest[];
+  has_laundry_access?: boolean;
+  legs?: TripLeg[];
   notes?: string;
 }

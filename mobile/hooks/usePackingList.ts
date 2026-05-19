@@ -94,7 +94,7 @@ export function useUpdatePackingItem(tripId: string) {
 export function useAddPackingItem(tripId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { category: string; item_name: string; quantity: number; essential: boolean }) =>
+    mutationFn: (data: { category: string; item_name: string; quantity: number; essential: boolean; traveler_type?: string }) =>
       packingApi.addItem(tripId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: packingKey(tripId) });

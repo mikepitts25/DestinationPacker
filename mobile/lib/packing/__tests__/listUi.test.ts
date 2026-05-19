@@ -1,5 +1,6 @@
 import {
   buildPackingGroups,
+  buildPackingTravelerSections,
   itemToRestoreInput,
   normalizeQuantityInput,
 } from '../listUi';
@@ -16,6 +17,7 @@ function item(overrides: Partial<PackingItem>): PackingItem {
     packed: false,
     essential: false,
     source: 'rule_engine',
+    traveler_type: 'shared',
     ...overrides,
   };
 }
@@ -77,6 +79,7 @@ describe('packing list UI helpers', () => {
       packed: true,
       essential: true,
       source: 'activity',
+      traveler_type: 'child',
     }))).toEqual({
       activity_id: 'activity-1',
       category: 'Footwear',
@@ -85,6 +88,29 @@ describe('packing list UI helpers', () => {
       packed: true,
       essential: true,
       source: 'activity',
+      traveler_type: 'child',
     });
+  });
+
+  it('builds traveler sections with category groups inside each traveler type', () => {
+    const items = [
+      item({ id: 'a', category: 'Clothing', item_name: 'Razors / shaving kit', traveler_type: 'male' }),
+      item({ id: 'b', category: 'Clothing', item_name: 'Dresses / skirts', traveler_type: 'female' }),
+      item({ id: 'c', category: 'Health', item_name: 'Kids sunscreen', traveler_type: 'child' }),
+      item({ id: 'd', category: 'Gear', item_name: 'Pet leash', traveler_type: 'pet' }),
+      item({ id: 'e', category: 'Documents', item_name: 'Reservation confirmations', traveler_type: 'shared' }),
+    ];
+
+    expect(buildPackingTravelerSections(['Clothing', 'Health', 'Gear', 'Documents'], items, false).map((section) => ({
+      travelerType: section.travelerType,
+      title: section.title,
+      categories: section.groups.map((group) => group.category),
+    }))).toEqual([
+      { travelerType: 'male', title: 'Adult (Male)', categories: ['Clothing'] },
+      { travelerType: 'female', title: 'Adult (Female)', categories: ['Clothing'] },
+      { travelerType: 'child', title: 'Children', categories: ['Health'] },
+      { travelerType: 'pet', title: 'Pets', categories: ['Gear'] },
+      { travelerType: 'shared', title: 'Shared', categories: ['Documents'] },
+    ]);
   });
 });

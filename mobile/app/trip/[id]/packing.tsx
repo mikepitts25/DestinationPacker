@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
+import { View, FlatList, StyleSheet, TouchableOpacity, TextInput, Modal, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, ActivityIndicator, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
@@ -14,7 +14,7 @@ import {
   useUpdatePackingItem,
 } from '@/hooks/usePackingList';
 import { Colors, Spacing, Radius } from '@/constants/theme';
-import { buildPackingGroups, itemToRestoreInput, normalizeQuantityInput } from '@/lib/packing/listUi';
+import { buildPackingTravelerSections, itemToRestoreInput, normalizeQuantityInput } from '@/lib/packing/listUi';
 import type { PackingItem } from '@/types';
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -79,7 +79,7 @@ export default function PackingScreen() {
 
   const categories = packingList?.categories ?? [];
   const allCategories = [...new Set([...categories, 'Clothing', 'Electronics', 'Documents', 'Toiletries', 'Health', 'Gear', 'Footwear', 'Misc'])];
-  const groupedItems = packingList ? buildPackingGroups(packingList.categories, packingList.items, hidePacked) : [];
+  const travelerSections = packingList ? buildPackingTravelerSections(packingList.categories, packingList.items, hidePacked) : [];
   const packedCount = packingList?.packed_items ?? 0;
   const totalCount = packingList?.total_items ?? 0;
   const progressPct = totalCount > 0 ? packedCount / totalCount : 0;
@@ -124,24 +124,33 @@ export default function PackingScreen() {
       )}
 
       <FlatList
-        data={groupedItems}
-        keyExtractor={(g) => g.category}
+        data={travelerSections}
+        keyExtractor={(section) => section.travelerType}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item: { category, visibleItems, allItems, packedCount: packedInCat } }) => (
-          <CategorySection
-            category={category}
-            visibleItems={visibleItems}
-            allItems={allItems}
-            packedCount={packedInCat}
-            collapsed={collapsedCategories.has(category)}
-            onToggleCollapse={() => toggleCategory(category)}
-            onToggleItem={(itemId, packed) => togglePacked({ itemId, packed })}
-            onSetCategoryPacked={(packed) => setItemsPacked({ itemIds: allItems.map(i => i.id), packed })}
-            onUpdateQuantity={(item, qty) => updateItem({ itemId: item.id, quantity: normalizeQuantityInput(String(qty)) })}
-            onDeleteItem={handleDeleteItem}
-            quantityDisabled={isUpdatingItem}
-          />
+        renderItem={({ item: section }) => (
+          <View style={styles.travelerSection}>
+            <Text style={styles.travelerSectionTitle}>{section.title}</Text>
+            {section.groups.map(({ category, visibleItems, allItems, packedCount: packedInCat }) => {
+              const collapseKey = `${section.travelerType}:${category}`;
+              return (
+                <CategorySection
+                  key={collapseKey}
+                  category={category}
+                  visibleItems={visibleItems}
+                  allItems={allItems}
+                  packedCount={packedInCat}
+                  collapsed={collapsedCategories.has(collapseKey)}
+                  onToggleCollapse={() => toggleCategory(collapseKey)}
+                  onToggleItem={(itemId, packed) => togglePacked({ itemId, packed })}
+                  onSetCategoryPacked={(packed) => setItemsPacked({ itemIds: allItems.map(i => i.id), packed })}
+                  onUpdateQuantity={(item, qty) => updateItem({ itemId: item.id, quantity: normalizeQuantityInput(String(qty)) })}
+                  onDeleteItem={handleDeleteItem}
+                  quantityDisabled={isUpdatingItem}
+                />
+              );
+            })}
+          </View>
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -160,8 +169,11 @@ export default function PackingScreen() {
 
       {/* Add Item Modal */}
       <Modal visible={showAddModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+        <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Add Item</Text>
             <Text style={styles.inputLabel}>Item name</Text>
             <TextInput
@@ -201,8 +213,9 @@ export default function PackingScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
+
     </View>
   );
 }
@@ -323,6 +336,16 @@ const styles = StyleSheet.create({
   },
   undoText: { fontSize: 13, color: Colors.onSurface, flex: 1 },
   list: { paddingHorizontal: Spacing.md, paddingTop: Spacing.xs },
+  travelerSection: { marginBottom: Spacing.sm },
+  travelerSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
   catCard: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
@@ -380,7 +403,7 @@ const styles = StyleSheet.create({
   },
   fabGradient: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
   fabText: { fontSize: 28, color: '#FFFFFF', fontWeight: '300', lineHeight: 30 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end', paddingBottom: 0 },
   modalContent: {
     backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: Spacing.lg, paddingBottom: 40,

@@ -7,10 +7,8 @@ import {
   packingActivityKeysForActivity,
   type PackingRecommendation,
 } from '@/lib/packing/ruleEngine';
-import {
-  appendLocalActivitySuggestions,
-  type ActivitySuggestion,
-} from '@/lib/activities/localSuggestions';
+import type { ActivitySuggestion } from '@/lib/activities/localSuggestions';
+import { activityTypesForInterests } from '@/lib/activities/interests';
 import {
   daysUntil,
   forecastDaysForTrip,
@@ -26,6 +24,7 @@ import type {
   PackingList,
   Trip,
   TripCreate,
+  TripLeg,
   User,
   WeatherForecast,
 } from '@/types';
@@ -76,7 +75,26 @@ function durationDays(startDate: string, endDate: string): number {
   return Number.isFinite(days) ? Math.max(1, days) : 1;
 }
 
+function normalizeTripLegs(row: any): TripLeg[] {
+  if (!Array.isArray(row.legs)) return [];
+
+  return row.legs.flatMap((leg: any) => {
+    if (!leg || typeof leg.destination !== 'string' || !leg.destination.trim()) return [];
+    return [{
+      destination: leg.destination,
+      travel_method: leg.travel_method ?? row.travel_method,
+      accommodation: leg.accommodation ?? row.accommodation,
+      start_date: leg.start_date ?? row.start_date,
+      end_date: leg.end_date ?? row.end_date,
+      latitude: leg.latitude ?? null,
+      longitude: leg.longitude ?? null,
+      country_code: leg.country_code ?? null,
+    } satisfies TripLeg];
+  });
+}
+
 function mapTrip(row: any): Trip {
+  const legs = normalizeTripLegs(row);
   return {
     id: row.id,
     user_id: row.user_id,
@@ -91,8 +109,12 @@ function mapTrip(row: any): Trip {
     travelers: row.travelers,
     male_travelers: row.male_travelers ?? 0,
     female_travelers: row.female_travelers ?? 0,
+    children: row.children ?? 0,
+    pets: row.pets ?? 0,
     activity_interests: row.activity_interests ?? [],
     notes: row.notes ?? null,
+    has_laundry_access: Boolean(row.has_laundry_access),
+    legs,
     duration_days: durationDays(row.start_date, row.end_date),
     created_at: row.created_at,
   };
@@ -109,6 +131,7 @@ function mapPackingItem(row: any): PackingItem {
     packed: row.packed,
     essential: row.essential,
     source: row.source,
+    traveler_type: row.traveler_type ?? 'shared',
   };
 }
 
@@ -125,6 +148,7 @@ function mapActivity(row: any): Activity {
     rating: row.rating !== null && row.rating !== undefined ? Number(row.rating) : null,
     review_count: row.review_count !== null && row.review_count !== undefined ? Number(row.review_count) : null,
     rating_source: row.rating_source ?? null,
+    distance_from_center_km: row.distance_from_center_km !== null && row.distance_from_center_km !== undefined ? Number(row.distance_from_center_km) : null,
     selected: row.selected,
   };
 }
@@ -195,6 +219,9 @@ function normalizePackingRecommendations(items: unknown): PackingRecommendation[
       essential: Boolean(item.essential),
       source: 'ai' as ItemSource,
       activity_type: null,
+      traveler_type: ['male', 'female', 'child', 'pet', 'shared'].includes(item.traveler_type)
+        ? item.traveler_type
+        : 'shared',
     }];
   });
 }
@@ -203,7 +230,7 @@ function mergeRecommendations(items: PackingRecommendation[]): PackingRecommenda
   const merged = new Map<string, PackingRecommendation>();
 
   for (const item of items) {
-    const key = item.item_name.trim().toLowerCase();
+    const key = `${item.traveler_type}:${item.item_name.trim().toLowerCase()}`;
     const existing = merged.get(key);
     if (!existing) {
       merged.set(key, item);
@@ -334,13 +361,27 @@ export const tripsApi = {
 
       if (countError) throw new ApiError(countError.message, 400);
       if ((count ?? 0) >= FREE_TRIP_LIMIT) {
-        throw new ApiError('Free users can save up to 3 trips. Upgrade to Premium for unlimited trips.', 402);
+        throw new ApiError('Your second trip requires Premium. Create unlimited trips with Premium.', 402);
       }
     }
 
     const maleTravelers = Math.max(0, data.male_travelers ?? 0);
     const femaleTravelers = Math.max(0, data.female_travelers ?? 0);
-    const travelerTotal = Math.max(1, maleTravelers + femaleTravelers || data.travelers || 1);
+    const children = Math.max(0, data.children ?? 0);
+    const pets = Math.max(0, data.pets ?? 0);
+    const travelerTotal = Math.max(1, maleTravelers + femaleTravelers + children || data.travelers || 1);
+    const legs = data.legs?.length
+      ? data.legs
+      : [{
+        destination: data.destination,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        country_code: data.country_code ?? null,
+        start_date: data.start_date,
+        end_date: data.end_date,
+        accommodation: data.accommodation,
+        travel_method: data.travel_method,
+      }];
 
     const { data: inserted, error } = await supabase
       .from('trips')
@@ -350,7 +391,11 @@ export const tripsApi = {
         travelers: travelerTotal,
         male_travelers: maleTravelers,
         female_travelers: femaleTravelers,
+        children,
+        pets,
         activity_interests: data.activity_interests ?? [],
+        has_laundry_access: Boolean(data.has_laundry_access),
+        legs,
       })
       .select('*')
       .single();
@@ -455,6 +500,7 @@ export const packingApi = {
             weather_summary: weather?.summary ?? 'Weather unavailable.',
             weather_conditions: weather?.conditions ?? [],
             selected_activities: selectedActivities ?? [],
+            user_notes: trip.notes ?? '',
           },
         });
 
@@ -487,6 +533,7 @@ export const packingApi = {
           quantity: item.quantity,
           essential: item.essential,
           source: item.source,
+          traveler_type: item.traveler_type,
         })));
 
       if (insertError) throw new ApiError(insertError.message, 400);
@@ -495,7 +542,7 @@ export const packingApi = {
     return packingApi.getList(tripId);
   },
 
-  addItem: async (tripId: string, data: { category: string; item_name: string; quantity: number; essential: boolean }) => {
+  addItem: async (tripId: string, data: { category: string; item_name: string; quantity: number; essential: boolean; traveler_type?: string }) => {
     const { data: inserted, error } = await supabase
       .from('packing_items')
       .insert({
@@ -503,6 +550,7 @@ export const packingApi = {
         trip_id: tripId,
         quantity: Math.max(1, Math.min(99, data.quantity || 1)),
         source: 'user_added',
+        traveler_type: data.traveler_type ?? 'shared',
       })
       .select('*')
       .single();
@@ -521,6 +569,7 @@ export const packingApi = {
       packed: boolean;
       essential: boolean;
       source: ItemSource;
+      traveler_type: string;
     },
   ) => {
     const { data: inserted, error } = await supabase
@@ -529,6 +578,7 @@ export const packingApi = {
         ...data,
         trip_id: tripId,
         quantity: Math.max(1, Math.min(99, data.quantity || 1)),
+        traveler_type: data.traveler_type,
       })
       .select('*')
       .single();
@@ -580,19 +630,9 @@ export const packingApi = {
 
 // Activities
 
-const ACTIVITY_TYPES_BY_INTEREST: Record<ActivityInterest, ActivityType[]> = {
-  beaches: ['beach', 'water'],
-  museums: ['cultural'],
-  nightlife: ['nightlife'],
-  dining: ['dining'],
-  outdoors: ['outdoor', 'sports'],
-  wellness: ['wellness'],
-  shopping: ['shopping', 'souvenirs'],
-};
-
 function matchesActivityInterests(activityType: ActivityType, interests: ActivityInterest[]) {
   if (interests.length === 0) return true;
-  return interests.some((interest) => ACTIVITY_TYPES_BY_INTEREST[interest]?.includes(activityType));
+  return activityTypesForInterests(interests).includes(activityType);
 }
 
 function fallbackActivities(destination: string, interests: ActivityInterest[] = []): ActivitySuggestion[] {
@@ -664,7 +704,7 @@ function fallbackActivities(destination: string, interests: ActivityInterest[] =
   ];
 
   const filtered = activities.filter((activity) => matchesActivityInterests(activity.activity_type, interests));
-  return appendLocalActivitySuggestions(filtered.length > 0 ? filtered : activities.slice(0, 5), destination);
+  return filtered.length > 0 ? filtered : activities.slice(0, 5);
 }
 
 function normalizeActivities(items: unknown, destination: string, interests: ActivityInterest[] = []): ActivitySuggestion[] {
@@ -684,12 +724,13 @@ function normalizeActivities(items: unknown, destination: string, interests: Act
       rating: Number.isFinite(rating) ? rating : null,
       review_count: Number.isFinite(reviewCount) && reviewCount >= 0 ? Math.round(reviewCount) : null,
       rating_source: typeof item.rating_source === 'string' ? item.rating_source : null,
+      distance_from_center_km: Number.isFinite(Number(item.distance_from_center_km))
+        ? Number(item.distance_from_center_km)
+        : null,
     }];
   });
 
-  return normalized.length > 0
-    ? appendLocalActivitySuggestions(normalized, destination)
-    : fallbackActivities(destination, interests);
+  return normalized.length > 0 ? normalized : fallbackActivities(destination, interests);
 }
 
 export const activitiesApi = {
@@ -794,6 +835,7 @@ export const activitiesApi = {
             quantity: item.quantity,
             essential: item.essential,
             source: 'activity',
+            traveler_type: item.traveler_type,
           }));
 
         if (rows.length > 0) {
