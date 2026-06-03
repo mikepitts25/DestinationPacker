@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, SectionList, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Text, Chip, Button, ActivityIndicator } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useActivities, useFetchActivities, useToggleActivity } from '@/hooks/useActivities';
@@ -39,6 +39,7 @@ export default function ActivitiesScreen() {
   }, [activities, fetchActivities, tripId]);
 
   const selectedCount = activities?.filter((a) => a.selected).length ?? 0;
+  const sections = activitySections(activities ?? []);
 
   if (isLoading || isFetching) {
     return (
@@ -59,8 +60,8 @@ export default function ActivitiesScreen() {
         </View>
       )}
 
-      <FlatList
-        data={activities ?? []}
+      <SectionList
+        sections={sections}
         keyExtractor={(a) => a.id}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
@@ -80,6 +81,13 @@ export default function ActivitiesScreen() {
             )}
           </View>
         }
+        renderSectionHeader={({ section }) => (
+          sections.length > 1 ? (
+            <View style={styles.destinationHeader}>
+              <Text style={styles.destinationTitle}>{section.title}</Text>
+            </View>
+          ) : null
+        )}
         renderItem={({ item }) => (
           <ActivityCard
             activity={item}
@@ -98,6 +106,17 @@ export default function ActivitiesScreen() {
       />
     </View>
   );
+}
+
+function activitySections(activities: Activity[]) {
+  const grouped = new Map<string, Activity[]>();
+
+  for (const activity of activities) {
+    const destination = activity.destination?.trim() || 'Activities';
+    grouped.set(destination, [...(grouped.get(destination) ?? []), activity]);
+  }
+
+  return Array.from(grouped.entries()).map(([title, data]) => ({ title, data }));
 }
 
 function ActivityCard({
@@ -161,6 +180,12 @@ const styles = StyleSheet.create({
   selectionText: { ...Typography.label, color: Colors.secondary },
   list: { padding: Spacing.md },
   hint: { ...Typography.caption, color: Colors.muted, marginBottom: Spacing.sm },
+  destinationHeader: {
+    backgroundColor: Colors.background,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
+  },
+  destinationTitle: { ...Typography.h3, color: Colors.onSurface },
   aiTeaser: {
     backgroundColor: '#fff8e1',
     borderRadius: 8,

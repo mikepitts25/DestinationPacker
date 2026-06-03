@@ -26,6 +26,24 @@ describe('packing rule engine', () => {
     expect(names(items)).toContain('Phone charger');
   });
 
+  it('adds optional entertainment items for downtime', () => {
+    const items = generatePackingList(baseTrip);
+
+    const book = items.find((item) => item.item_name === 'Favorite book or e-reader');
+    const game = items.find((item) => item.item_name === 'Travel-size game / deck of cards');
+    const downloads = items.find((item) => item.item_name === 'Downloaded movies, podcasts, or playlists');
+
+    expect(book).toMatchObject({
+      category: 'Entertainment',
+      quantity: 1,
+      essential: false,
+      source: 'rule_engine',
+      traveler_type: 'shared',
+    });
+    expect(game).toMatchObject({ category: 'Entertainment', essential: false });
+    expect(downloads).toMatchObject({ category: 'Entertainment', essential: false });
+  });
+
   it('adds sunscreen and sunglasses for hot weather', () => {
     const items = generatePackingList(baseTrip, ['hot']);
 

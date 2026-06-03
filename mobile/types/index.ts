@@ -126,6 +126,7 @@ export interface PackingList {
 export interface Activity {
   id: string;
   trip_id: string;
+  destination: string | null;
   activity_name: string;
   activity_type: ActivityType;
   description: string | null;

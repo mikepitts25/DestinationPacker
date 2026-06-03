@@ -9,7 +9,7 @@ Remote Supabase URL: `https://qugwlnxdlzeymxratwkg.supabase.co`
 ## Current State
 
 - Expo SDK 54 mobile app is on a Supabase standalone architecture.
-- Local Supabase is running and local migrations through `0004_advisor_cleanup.sql` have been applied.
+- Local Supabase is running and the timestamped migration set through `20260519064753_advisor_cleanup.sql` has been applied.
 - A LAN Expo server was started for Expo Go at `exp://192.168.1.187:8082`.
 - Existing localhost Expo server on `8081` was left untouched.
 - Untracked items intentionally left alone: `.claude/` and `packer.pen`.
@@ -46,6 +46,8 @@ Migrations applied remotely:
 - `trip_travelers_and_interests`
 - `activity_ratings`
 - `advisor_cleanup`
+- `multi_leg_travelers_and_segments`
+- `trip_activity_destinations`
 
 Edge Functions deployed remotely and active with `verify_jwt: true`:
 
@@ -63,12 +65,14 @@ Supabase advisors after cleanup:
 
 Files now present:
 
-- `supabase/migrations/0001_initial_schema.sql`
-- `supabase/migrations/0002_trip_travelers_and_interests.sql`
-- `supabase/migrations/0003_activity_ratings.sql`
-- `supabase/migrations/0004_advisor_cleanup.sql`
+- `supabase/migrations/20260519064054_initial_schema.sql`
+- `supabase/migrations/20260519064103_trip_travelers_and_interests.sql`
+- `supabase/migrations/20260519064105_activity_ratings.sql`
+- `supabase/migrations/20260519064753_advisor_cleanup.sql`
+- `supabase/migrations/20260519182238_multi_leg_travelers_and_segments.sql`
+- `supabase/migrations/20260521150528_trip_activity_destinations.sql`
 
-`0004_advisor_cleanup.sql`:
+`20260519064753_advisor_cleanup.sql`:
 
 - Revokes direct public/anon/authenticated execution on security-definer functions.
 - Adds a service-role-only policy for `api_cache`.

@@ -51,6 +51,12 @@ ALWAYS_RULES: list[tuple[str, str, int, bool]] = [
     ("Clothing", "Pajamas / sleepwear", 1, False),
     ("Misc", "Reusable water bottle", 1, False),
     ("Misc", "Small day bag / backpack", 1, False),
+    ("Entertainment", "Favorite book or e-reader", 1, False),
+    ("Entertainment", "Travel-size game / deck of cards", 1, False),
+    ("Entertainment", "Downloaded movies, podcasts, or playlists", 1, False),
+    ("Entertainment", "Journal or sketchbook", 1, False),
+    ("Entertainment", "Pen", 1, False),
+    ("Entertainment", "Offline maps / saved trip notes", 1, False),
 ]
 
 # duration_days -> items based on trip length

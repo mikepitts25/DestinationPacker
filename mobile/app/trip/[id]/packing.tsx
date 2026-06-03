@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, TextInput, Modal, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Modal, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, ActivityIndicator, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
@@ -15,11 +15,19 @@ import {
 } from '@/hooks/usePackingList';
 import { Colors, Spacing, Radius } from '@/constants/theme';
 import { buildPackingTravelerSections, itemToRestoreInput, normalizeQuantityInput } from '@/lib/packing/listUi';
-import type { PackingItem } from '@/types';
+import type { PackingItem, TravelerType } from '@/types';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   Clothing: '👕', Electronics: '🔌', Documents: '📄', Toiletries: '🧴',
-  Health: '💊', Gear: '🎒', Misc: '📦', Footwear: '👟', default: '📦',
+  Health: '💊', Gear: '🎒', Entertainment: '🎲', Misc: '📦', Footwear: '👟', default: '📦',
+};
+
+const TRAVELER_META: Record<TravelerType, { label: string; emoji: string }> = {
+  male: { label: 'His', emoji: '👔' },
+  female: { label: 'Hers', emoji: '👗' },
+  child: { label: 'Kids', emoji: '🧒' },
+  pet: { label: 'Pets', emoji: '🐾' },
+  shared: { label: 'Shared', emoji: '🔗' },
 };
 
 export default function PackingScreen() {
@@ -33,7 +41,8 @@ export default function PackingScreen() {
   const { mutate: setItemsPacked } = useSetPackingItemsPacked(tripId);
   const { mutate: updateItem, isPending: isUpdatingItem } = useUpdatePackingItem(tripId);
 
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [selectedTraveler, setSelectedTraveler] = useState<TravelerType | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [hidePacked, setHidePacked] = useState(false);
   const [recentlyDeleted, setRecentlyDeleted] = useState<PackingItem | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -45,16 +54,35 @@ export default function PackingScreen() {
     return <View style={styles.centered}><ActivityIndicator size="large" color={Colors.primary} /></View>;
   }
 
-  const toggleCategory = (cat: string) => {
-    setCollapsedCategories((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) {
-        next.delete(cat);
-      } else {
-        next.add(cat);
-      }
-      return next;
-    });
+  // Build sections with hidePacked=false so tiles always show real counts
+  const travelerSections = packingList
+    ? buildPackingTravelerSections(packingList.categories, packingList.items, false)
+    : [];
+
+  const packedCount = packingList?.packed_items ?? 0;
+  const totalCount = packingList?.total_items ?? 0;
+  const progressPct = totalCount > 0 ? packedCount / totalCount : 0;
+
+  const activeTravelerType = selectedTraveler ?? travelerSections[0]?.travelerType ?? null;
+  const activeSection = travelerSections.find(s => s.travelerType === activeTravelerType);
+  const activeGroups = activeSection?.groups ?? [];
+  const activeCategoryGroup = selectedCategory
+    ? activeGroups.find(g => g.category === selectedCategory) ?? null
+    : null;
+  const expandedItems = activeCategoryGroup
+    ? (hidePacked ? activeCategoryGroup.allItems.filter(i => !i.packed) : activeCategoryGroup.allItems)
+    : [];
+
+  const categories = packingList?.categories ?? [];
+  const allCategories = [...new Set([...categories, 'Clothing', 'Electronics', 'Documents', 'Toiletries', 'Health', 'Gear', 'Footwear', 'Entertainment', 'Misc'])];
+
+  const handleTravelerSelect = (type: TravelerType) => {
+    setSelectedTraveler(type);
+    setSelectedCategory(null);
+  };
+
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(prev => prev === category ? null : category);
   };
 
   const handleDeleteItem = (item: PackingItem) => {
@@ -72,17 +100,17 @@ export default function PackingScreen() {
   const handleAddItem = () => {
     const name = newItemName.trim();
     if (!name) return;
-    addItem({ category: newItemCategory, item_name: name, quantity: normalizeQuantityInput(newItemQty), essential: false }, {
-      onSuccess: () => { setNewItemName(''); setNewItemQty('1'); setShowAddModal(false); },
-    });
+    addItem(
+      { category: newItemCategory, item_name: name, quantity: normalizeQuantityInput(newItemQty), essential: false },
+      { onSuccess: () => { setNewItemName(''); setNewItemQty('1'); setShowAddModal(false); } },
+    );
   };
 
-  const categories = packingList?.categories ?? [];
-  const allCategories = [...new Set([...categories, 'Clothing', 'Electronics', 'Documents', 'Toiletries', 'Health', 'Gear', 'Footwear', 'Misc'])];
-  const travelerSections = packingList ? buildPackingTravelerSections(packingList.categories, packingList.items, hidePacked) : [];
-  const packedCount = packingList?.packed_items ?? 0;
-  const totalCount = packingList?.total_items ?? 0;
-  const progressPct = totalCount > 0 ? packedCount / totalCount : 0;
+  // Pair groups into 2-column rows
+  const gridRows: Array<typeof activeGroups> = [];
+  for (let i = 0; i < activeGroups.length; i += 2) {
+    gridRows.push(activeGroups.slice(i, i + 2));
+  }
 
   return (
     <View style={styles.container}>
@@ -93,7 +121,7 @@ export default function PackingScreen() {
           <Text style={styles.progressPct}>{Math.round(progressPct * 100)}%</Text>
         </View>
         <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progressPct * 100}%` }]} />
+          <View style={[styles.progressFill, { width: `${progressPct * 100}%` as `${number}%` }]} />
         </View>
         <TouchableOpacity style={styles.hidePackedRow} onPress={() => setHidePacked(v => !v)}>
           <View style={[styles.miniCheck, hidePacked && styles.miniCheckActive]}>
@@ -123,44 +151,155 @@ export default function PackingScreen() {
         </View>
       )}
 
-      <FlatList
-        data={travelerSections}
-        keyExtractor={(section) => section.travelerType}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item: section }) => (
-          <View style={styles.travelerSection}>
-            <Text style={styles.travelerSectionTitle}>{section.title}</Text>
-            {section.groups.map(({ category, visibleItems, allItems, packedCount: packedInCat }) => {
-              const collapseKey = `${section.travelerType}:${category}`;
+      {travelerSections.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No packing list yet.</Text>
+          <Button onPress={() => regenerate()} loading={isRegenerating} textColor={Colors.primary}>Generate List</Button>
+        </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* Traveler pill tabs */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.travelerTabsScroll}
+            contentContainerStyle={styles.travelerTabsContent}
+          >
+            {travelerSections.map(section => {
+              const meta = TRAVELER_META[section.travelerType];
+              const isActive = section.travelerType === activeTravelerType;
               return (
-                <CategorySection
-                  key={collapseKey}
-                  category={category}
-                  visibleItems={visibleItems}
-                  allItems={allItems}
-                  packedCount={packedInCat}
-                  collapsed={collapsedCategories.has(collapseKey)}
-                  onToggleCollapse={() => toggleCategory(collapseKey)}
-                  onToggleItem={(itemId, packed) => togglePacked({ itemId, packed })}
-                  onSetCategoryPacked={(packed) => setItemsPacked({ itemIds: allItems.map(i => i.id), packed })}
-                  onUpdateQuantity={(item, qty) => updateItem({ itemId: item.id, quantity: normalizeQuantityInput(String(qty)) })}
-                  onDeleteItem={handleDeleteItem}
-                  quantityDisabled={isUpdatingItem}
-                />
+                <TouchableOpacity
+                  key={section.travelerType}
+                  style={[styles.travelerTab, isActive && styles.travelerTabActive]}
+                  onPress={() => handleTravelerSelect(section.travelerType)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.travelerTabText, isActive && styles.travelerTabTextActive]}>
+                    {meta.emoji} {meta.label}
+                  </Text>
+                </TouchableOpacity>
               );
             })}
-          </View>
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{hidePacked && totalCount > 0 ? 'Everything is packed! 🎉' : 'No packing list yet.'}</Text>
-            {!hidePacked && <Button onPress={() => regenerate()} loading={isRegenerating} textColor={Colors.primary}>Generate List</Button>}
-          </View>
-        }
-        ListFooterComponent={<View style={{ height: 90 }} />}
-      />
+          </ScrollView>
 
+          {/* Category tile grid */}
+          <View style={styles.grid}>
+            {gridRows.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.gridRow}>
+                {row.map(group => {
+                  const isSelected = group.category === selectedCategory;
+                  const pct = group.allItems.length > 0
+                    ? Math.round(group.packedCount / group.allItems.length * 100)
+                    : 0;
+                  const allDone = group.packedCount === group.allItems.length && group.allItems.length > 0;
+                  return (
+                    <TouchableOpacity
+                      key={group.category}
+                      style={[styles.tile, isSelected && styles.tileSelected]}
+                      onPress={() => handleCategorySelect(group.category)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.tileEmoji}>
+                        {CATEGORY_EMOJI[group.category] ?? CATEGORY_EMOJI.default}
+                      </Text>
+                      <Text style={[styles.tileName, isSelected && styles.tileNameSelected]}>
+                        {group.category}
+                      </Text>
+                      <View style={styles.tileFooter}>
+                        <Text style={[styles.tileCount, isSelected && styles.tileCountSelected]}>
+                          {group.packedCount}/{group.allItems.length}
+                        </Text>
+                        <View style={[styles.tilePill, allDone && styles.tilePillDone]}>
+                          <Text style={[styles.tilePillText, allDone && styles.tilePillTextDone]}>
+                            {pct}%
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+                {row.length === 1 && <View style={styles.tileSpacer} />}
+              </View>
+            ))}
+          </View>
+
+          {/* Expanded category item list */}
+          {activeCategoryGroup && (
+            <View style={styles.expandedCard}>
+              <View style={styles.expandedHeader}>
+                <Text style={styles.expandedTitle}>
+                  {CATEGORY_EMOJI[selectedCategory!] ?? '📦'} {selectedCategory}
+                </Text>
+                <TouchableOpacity
+                  style={styles.packAllBtn}
+                  onPress={() => setItemsPacked({
+                    itemIds: activeCategoryGroup.allItems.map(i => i.id),
+                    packed: activeCategoryGroup.packedCount < activeCategoryGroup.allItems.length,
+                  })}
+                >
+                  <Text style={styles.packAllText}>
+                    {activeCategoryGroup.packedCount === activeCategoryGroup.allItems.length ? 'Unpack all' : 'Pack all'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {expandedItems.length === 0 ? (
+                <View style={styles.categoryDone}>
+                  <Text style={styles.categoryDoneText}>All packed! 🎉</Text>
+                </View>
+              ) : expandedItems.map(item => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.itemRow, item.packed && styles.itemRowPacked]}
+                  onPress={() => togglePacked({ itemId: item.id, packed: !item.packed })}
+                  onLongPress={() => handleDeleteItem(item)}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.checkbox, item.packed ? styles.checkboxPacked : styles.checkboxUnpacked]}>
+                    {item.packed && <Text style={styles.checkMark}>✓</Text>}
+                  </View>
+                  <View style={styles.itemContent}>
+                    <Text style={[styles.itemName, item.packed && styles.itemNamePacked]}>
+                      {item.item_name}
+                      {item.quantity > 1 && <Text style={styles.qty}> ×{item.quantity}</Text>}
+                    </Text>
+                    {item.essential && !item.packed && <Text style={styles.essentialStar}>★</Text>}
+                  </View>
+                  <View style={styles.qtyControls}>
+                    <TouchableOpacity
+                      style={[styles.qtyBtn, item.quantity <= 1 && styles.qtyBtnDisabled]}
+                      onPress={() => updateItem({ itemId: item.id, quantity: normalizeQuantityInput(String(item.quantity - 1)) })}
+                      disabled={isUpdatingItem || item.quantity <= 1}
+                    >
+                      <Text style={styles.qtyBtnText}>-</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.qtyVal}>{item.quantity}</Text>
+                    <TouchableOpacity
+                      style={styles.qtyBtn}
+                      onPress={() => updateItem({ itemId: item.id, quantity: normalizeQuantityInput(String(item.quantity + 1)) })}
+                      disabled={isUpdatingItem}
+                    >
+                      <Text style={styles.qtyBtnText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteItem(item)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.deleteBtn}
+                  >
+                    <Text style={styles.deleteText}>✕</Text>
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      )}
+
+      {/* FAB */}
       <TouchableOpacity style={styles.fab} onPress={() => setShowAddModal(true)} activeOpacity={0.85}>
         <LinearGradient colors={[Colors.gold, Colors.goldDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.fabGradient}>
           <Text style={styles.fabText}>+</Text>
@@ -169,11 +308,8 @@ export default function PackingScreen() {
 
       {/* Add Item Modal */}
       <Modal visible={showAddModal} transparent animationType="slide">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-        <View style={styles.modalContent}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Add Item</Text>
             <Text style={styles.inputLabel}>Item name</Text>
             <TextInput
@@ -199,7 +335,12 @@ export default function PackingScreen() {
               ))}
             </View>
             <Text style={styles.inputLabel}>Quantity</Text>
-            <TextInput style={[styles.textInput, { width: 70 }]} keyboardType="number-pad" value={newItemQty} onChangeText={setNewItemQty} />
+            <TextInput
+              style={[styles.textInput, { width: 70 }]}
+              keyboardType="number-pad"
+              value={newItemQty}
+              onChangeText={setNewItemQty}
+            />
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddModal(false)}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -215,76 +356,6 @@ export default function PackingScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-
-    </View>
-  );
-}
-
-function CategorySection({
-  category, visibleItems, allItems, packedCount, collapsed,
-  onToggleCollapse, onToggleItem, onSetCategoryPacked, onUpdateQuantity, onDeleteItem, quantityDisabled,
-}: {
-  category: string; visibleItems: PackingItem[]; allItems: PackingItem[]; packedCount: number;
-  collapsed: boolean; onToggleCollapse: () => void; onToggleItem: (id: string, packed: boolean) => void;
-  onSetCategoryPacked: (packed: boolean) => void; onUpdateQuantity: (item: PackingItem, qty: number) => void;
-  onDeleteItem: (item: PackingItem) => void; quantityDisabled: boolean;
-}) {
-  const emoji = CATEGORY_EMOJI[category] ?? CATEGORY_EMOJI.default;
-  const allPacked = allItems.length > 0 && packedCount === allItems.length;
-
-  return (
-    <View style={styles.catCard}>
-      <TouchableOpacity style={styles.catHeader} onPress={onToggleCollapse} activeOpacity={0.8}>
-        <Text style={styles.catTitle}>{emoji} {category}</Text>
-        <View style={styles.catRight}>
-          <TouchableOpacity
-            style={styles.packAllBtn}
-            onPress={(e) => { e.stopPropagation(); onSetCategoryPacked(!allPacked); }}
-          >
-            <Text style={styles.packAllText}>{allPacked ? 'Unpack' : 'Pack all'}</Text>
-          </TouchableOpacity>
-          <Text style={styles.catCount}>{packedCount}/{allItems.length}</Text>
-          <Text style={styles.chevron}>{collapsed ? '›' : '⌄'}</Text>
-        </View>
-      </TouchableOpacity>
-
-      {!collapsed && visibleItems.map((item) => (
-        <TouchableOpacity
-          key={item.id}
-          style={[styles.itemRow, item.packed && styles.itemRowPacked]}
-          onPress={() => onToggleItem(item.id, !item.packed)}
-          onLongPress={() => onDeleteItem(item)}
-          activeOpacity={0.75}
-        >
-          {/* Custom gold/teal checkbox */}
-          <View style={[styles.checkbox, item.packed ? styles.checkboxPacked : styles.checkboxUnpacked]}>
-            {item.packed && <Text style={styles.checkMark}>✓</Text>}
-          </View>
-          <View style={styles.itemContent}>
-            <Text style={[styles.itemName, item.packed && styles.itemNamePacked]}>
-              {item.item_name}
-              {item.quantity > 1 && <Text style={styles.qty}> ×{item.quantity}</Text>}
-            </Text>
-            {item.essential && !item.packed && <Text style={styles.essentialStar}>★</Text>}
-          </View>
-          <View style={styles.qtyControls}>
-            <TouchableOpacity
-              style={[styles.qtyBtn, item.quantity <= 1 && styles.qtyBtnDisabled]}
-              onPress={() => onUpdateQuantity(item, item.quantity - 1)}
-              disabled={quantityDisabled || item.quantity <= 1}
-            >
-              <Text style={styles.qtyBtnText}>-</Text>
-            </TouchableOpacity>
-            <Text style={styles.qtyVal}>{item.quantity}</Text>
-            <TouchableOpacity style={styles.qtyBtn} onPress={() => onUpdateQuantity(item, item.quantity + 1)} disabled={quantityDisabled}>
-              <Text style={styles.qtyBtnText}>+</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity onPress={() => onDeleteItem(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.deleteBtn}>
-            <Text style={styles.deleteText}>✕</Text>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      ))}
     </View>
   );
 }
@@ -292,6 +363,8 @@ function CategorySection({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  // Progress card
   progressCard: {
     backgroundColor: Colors.surface,
     margin: Spacing.md,
@@ -318,6 +391,8 @@ const styles = StyleSheet.create({
   miniCheckActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   miniCheckMark: { fontSize: 11, color: '#FFFFFF', fontWeight: '700' },
   hidePackedText: { fontSize: 13, color: Colors.onSurface },
+
+  // AI banner
   aiBannerWrap: { marginHorizontal: Spacing.md, marginBottom: Spacing.sm, borderRadius: 12, overflow: 'hidden' },
   aiBanner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 12 },
   aiBannerText: { flex: 1, fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
@@ -328,6 +403,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   aiBannerBtnText: { fontSize: 12, fontWeight: '700', color: Colors.gold },
+
+  // Undo banner
   undoBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: 'rgba(10,147,150,0.08)',
@@ -335,45 +412,114 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.md, borderRadius: 10, marginBottom: Spacing.xs,
   },
   undoText: { fontSize: 13, color: Colors.onSurface, flex: 1 },
-  list: { paddingHorizontal: Spacing.md, paddingTop: Spacing.xs },
-  travelerSection: { marginBottom: Spacing.sm },
-  travelerSectionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: Colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
+
+  // Scroll container
+  scrollContent: { paddingTop: Spacing.xs },
+
+  // Traveler tabs
+  travelerTabsScroll: { flexGrow: 0 },
+  travelerTabsContent: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: 8,
   },
-  catCard: {
+  travelerTab: {
+    borderRadius: Radius.full,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  travelerTabActive: {
+    backgroundColor: Colors.deepDark,
+    borderColor: Colors.deepDark,
+  },
+  travelerTabText: { fontSize: 14, fontWeight: '600', color: Colors.muted },
+  travelerTabTextActive: { color: '#FFFFFF' },
+
+  // Category grid
+  grid: { paddingHorizontal: Spacing.md, gap: 10 },
+  gridRow: { flexDirection: 'row', gap: 10 },
+  tile: {
+    flex: 1,
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    marginBottom: Spacing.sm,
+    padding: Spacing.md,
+    gap: 4,
+    shadowColor: Colors.cardShadow,
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  tileSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: 'rgba(10,147,150,0.04)',
+  },
+  tileEmoji: { fontSize: 24, marginBottom: 2 },
+  tileName: { fontSize: 13, fontWeight: '700', color: Colors.onSurface },
+  tileNameSelected: { color: Colors.primary },
+  tileFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  tileCount: { fontSize: 12, color: Colors.muted, fontWeight: '600' },
+  tileCountSelected: { color: Colors.primary },
+  tilePill: {
+    backgroundColor: Colors.border,
+    borderRadius: Radius.full,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  tilePillDone: { backgroundColor: Colors.primary },
+  tilePillText: { fontSize: 10, fontWeight: '700', color: Colors.primary },
+  tilePillTextDone: { color: '#FFFFFF' },
+  tileSpacer: { flex: 1 },
+
+  // Expanded item card
+  expandedCard: {
+    backgroundColor: Colors.surface,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: Colors.cardShadow,
     shadowOpacity: 1,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
+    borderTopWidth: 3,
+    borderTopColor: Colors.primary,
   },
-  catHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  expandedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.md,
+    backgroundColor: 'rgba(10,147,150,0.05)',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
-  catTitle: { fontSize: 16, fontWeight: '700', color: Colors.onSurface },
-  catRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  expandedTitle: { fontSize: 16, fontWeight: '700', color: Colors.onSurface },
   packAllBtn: {
-    borderWidth: 1, borderColor: Colors.border, borderRadius: 8,
-    paddingHorizontal: Spacing.sm, paddingVertical: 3, backgroundColor: Colors.background,
+    borderWidth: 1, borderColor: Colors.primary, borderRadius: 8,
+    paddingHorizontal: Spacing.sm, paddingVertical: 4,
   },
-  packAllText: { fontSize: 11, fontWeight: '600', color: Colors.primary },
-  catCount: { fontSize: 12, color: Colors.muted },
-  chevron: { fontSize: 18, color: Colors.muted },
-  itemRow: { flexDirection: 'row', alignItems: 'center', paddingRight: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.background, minHeight: 48 },
+  packAllText: { fontSize: 11, fontWeight: '700', color: Colors.primary },
+  categoryDone: { padding: Spacing.lg, alignItems: 'center' },
+  categoryDoneText: { fontSize: 15, color: Colors.muted },
+
+  // Item rows
+  itemRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingRight: Spacing.md,
+    borderBottomWidth: 1, borderBottomColor: Colors.background,
+    minHeight: 48,
+  },
   itemRowPacked: { backgroundColor: '#F8FAFB' },
   checkbox: {
-    width: 22, height: 22, borderRadius: 6, marginLeft: Spacing.md, marginRight: 10,
+    width: 22, height: 22, borderRadius: 6,
+    marginLeft: Spacing.md, marginRight: 10,
     alignItems: 'center', justifyContent: 'center',
   },
   checkboxPacked: { backgroundColor: Colors.gold, borderWidth: 0 },
@@ -386,7 +532,8 @@ const styles = StyleSheet.create({
   essentialStar: { fontSize: 14, color: Colors.gold },
   qtyControls: {
     flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderColor: Colors.border, borderRadius: 8, overflow: 'hidden', marginLeft: Spacing.sm,
+    borderWidth: 1, borderColor: Colors.border, borderRadius: 8,
+    overflow: 'hidden', marginLeft: Spacing.sm,
   },
   qtyBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface },
   qtyBtnDisabled: { opacity: 0.35 },
@@ -394,6 +541,8 @@ const styles = StyleSheet.create({
   qtyVal: { width: 26, textAlign: 'center', fontSize: 13, fontWeight: '600', color: Colors.onSurface },
   deleteBtn: { padding: Spacing.sm },
   deleteText: { fontSize: 13, color: Colors.muted },
+
+  // FAB
   fab: {
     position: 'absolute', bottom: 20, right: Spacing.lg,
     borderRadius: 28, overflow: 'hidden',
@@ -403,13 +552,19 @@ const styles = StyleSheet.create({
   },
   fabGradient: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
   fabText: { fontSize: 28, color: '#FFFFFF', fontWeight: '300', lineHeight: 30 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end', paddingBottom: 0 },
+
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   modalContent: {
     backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: Spacing.lg, paddingBottom: 40,
   },
   modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.onSurface, marginBottom: Spacing.md },
-  inputLabel: { fontSize: 12, fontWeight: '600', color: Colors.muted, marginBottom: 4, marginTop: Spacing.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
+  inputLabel: {
+    fontSize: 12, fontWeight: '600', color: Colors.muted,
+    marginBottom: 4, marginTop: Spacing.sm,
+    textTransform: 'uppercase', letterSpacing: 0.5,
+  },
   textInput: {
     borderWidth: 1, borderColor: Colors.border, borderRadius: 10,
     padding: Spacing.sm, fontSize: 15, color: Colors.onSurface, backgroundColor: Colors.background,
@@ -428,6 +583,8 @@ const styles = StyleSheet.create({
   addBtn: { backgroundColor: Colors.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
   addBtnDisabled: { opacity: 0.5 },
   addBtnText: { fontSize: 15, color: Colors.surface, fontWeight: '600' },
-  empty: { alignItems: 'center', paddingVertical: Spacing.xxl },
+
+  // Empty states
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.xxl },
   emptyText: { fontSize: 15, color: Colors.muted, marginBottom: Spacing.md },
 });

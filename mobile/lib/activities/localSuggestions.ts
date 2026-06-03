@@ -1,7 +1,7 @@
 import type { Activity, ActivityType } from '@/types';
 
 export type ActivitySuggestion =
-  Omit<Activity, 'id' | 'trip_id' | 'selected' | 'rating' | 'review_count' | 'rating_source' | 'distance_from_center_km'>
+  Omit<Activity, 'id' | 'trip_id' | 'destination' | 'selected' | 'rating' | 'review_count' | 'rating_source' | 'distance_from_center_km'>
   & {
     rating?: number | null;
     review_count?: number | null;

@@ -8,13 +8,18 @@ import {
   type PackingRecommendation,
 } from '@/lib/packing/ruleEngine';
 import type { ActivitySuggestion } from '@/lib/activities/localSuggestions';
-import { activityTypesForInterests } from '@/lib/activities/interests';
+import {
+  completeActivitySuggestions,
+  fallbackActivitiesForDestination,
+} from '@/lib/activities/suggestions';
+import { tripDestinations, type TripDestination } from '@/lib/trips/destinations';
 import {
   daysUntil,
   forecastDaysForTrip,
   parseOpenMeteoForecast,
   unavailableForecast,
 } from '@/lib/weather/forecast';
+import { describeSupabaseWriteError } from '@/lib/supabase/errors';
 import type {
   Activity,
   ActivityInterest,
@@ -139,6 +144,7 @@ function mapActivity(row: any): Activity {
   return {
     id: row.id,
     trip_id: row.trip_id,
+    destination: row.destination ?? null,
     activity_name: row.activity_name,
     activity_type: row.activity_type,
     description: row.description ?? null,
@@ -400,7 +406,7 @@ export const tripsApi = {
       .select('*')
       .single();
 
-    if (error) throw new ApiError(error.message, 400);
+    if (error) throw new ApiError(describeSupabaseWriteError(error.message), 400);
     return mapTrip(inserted);
   },
 
@@ -630,85 +636,8 @@ export const packingApi = {
 
 // Activities
 
-function matchesActivityInterests(activityType: ActivityType, interests: ActivityInterest[]) {
-  if (interests.length === 0) return true;
-  return activityTypesForInterests(interests).includes(activityType);
-}
-
-function fallbackActivities(destination: string, interests: ActivityInterest[] = []): ActivitySuggestion[] {
-  const activities: ActivitySuggestion[] = [
-    {
-      activity_name: `Explore ${destination} city center`,
-      activity_type: 'cultural',
-      description: 'Walk around and discover local neighborhoods.',
-      source: 'suggested',
-      external_id: null,
-      photo_url: null,
-    },
-    {
-      activity_name: 'Visit local museums',
-      activity_type: 'cultural',
-      description: 'Explore history, art, and culture.',
-      source: 'suggested',
-      external_id: null,
-      photo_url: null,
-    },
-    {
-      activity_name: 'Try local cuisine',
-      activity_type: 'dining',
-      description: 'Sample authentic local food and restaurants.',
-      source: 'suggested',
-      external_id: null,
-      photo_url: null,
-    },
-    {
-      activity_name: 'Day hike or nature walk',
-      activity_type: 'outdoor',
-      description: 'Discover the natural surroundings.',
-      source: 'suggested',
-      external_id: null,
-      photo_url: null,
-    },
-    {
-      activity_name: 'Beach or waterfront time',
-      activity_type: 'beach',
-      description: 'Spend time by the water if the destination has a beach, lake, riverfront, or pool area.',
-      source: 'suggested',
-      external_id: null,
-      photo_url: null,
-    },
-    {
-      activity_name: 'Evening drinks or club night',
-      activity_type: 'nightlife',
-      description: 'Plan a night out at a bar, lounge, live music venue, or club.',
-      source: 'suggested',
-      external_id: null,
-      photo_url: null,
-    },
-    {
-      activity_name: 'Spa, wellness, or fitness session',
-      activity_type: 'wellness',
-      description: 'Look for a spa, yoga class, gym session, or wellness activity nearby.',
-      source: 'suggested',
-      external_id: null,
-      photo_url: null,
-    },
-    {
-      activity_name: 'Local markets and shopping',
-      activity_type: 'shopping',
-      description: 'Browse local markets for souvenirs and goods.',
-      source: 'suggested',
-      external_id: null,
-      photo_url: null,
-    },
-  ];
-
-  const filtered = activities.filter((activity) => matchesActivityInterests(activity.activity_type, interests));
-  return filtered.length > 0 ? filtered : activities.slice(0, 5);
-}
-
 function normalizeActivities(items: unknown, destination: string, interests: ActivityInterest[] = []): ActivitySuggestion[] {
-  if (!Array.isArray(items)) return fallbackActivities(destination, interests);
+  if (!Array.isArray(items)) return fallbackActivitiesForDestination(destination, interests);
 
   const normalized = items.flatMap((item: any) => {
     if (!item || typeof item.activity_name !== 'string') return [];
@@ -730,7 +659,56 @@ function normalizeActivities(items: unknown, destination: string, interests: Act
     }];
   });
 
-  return normalized.length > 0 ? normalized : fallbackActivities(destination, interests);
+  return completeActivitySuggestions(
+    normalized.length > 0 ? normalized : fallbackActivitiesForDestination(destination, interests),
+    destination,
+    interests,
+  );
+}
+
+function activityStorageKey(activity: Pick<Activity, 'destination' | 'external_id' | 'activity_name'>) {
+  const destinationKey = (activity.destination ?? '').trim().toLowerCase();
+  const nameKey = activity.activity_name.trim().replace(/\s+/g, ' ').toLowerCase();
+  return `${destinationKey}:name:${nameKey}`;
+}
+
+function dedupeStoredActivities(activities: Activity[]): Activity[] {
+  const seen = new Set<string>();
+
+  return activities.filter((activity) => {
+    const key = activityStorageKey(activity);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function fetchActivitiesForDestination(
+  destination: TripDestination,
+  interests: ActivityInterest[],
+): Promise<ActivitySuggestion[]> {
+  let activities = fallbackActivitiesForDestination(destination.destination, interests);
+
+  if (destination.latitude !== null && destination.longitude !== null) {
+    try {
+      const { data, error } = await supabase.functions.invoke('activities-search', {
+        body: {
+          destination: destination.destination,
+          lat: destination.latitude,
+          lon: destination.longitude,
+          interests,
+        },
+      });
+
+      if (!error) {
+        activities = normalizeActivities(data?.activities ?? data, destination.destination, interests);
+      }
+    } catch {
+      activities = fallbackActivitiesForDestination(destination.destination, interests);
+    }
+  }
+
+  return completeActivitySuggestions(activities, destination.destination, interests);
 }
 
 export const activitiesApi = {
@@ -740,46 +718,35 @@ export const activitiesApi = {
       .select('*')
       .eq('trip_id', tripId)
       .order('selected', { ascending: false })
+      .order('destination', { ascending: true, nullsFirst: false })
       .order('activity_name', { ascending: true });
 
     if (error) throw new ApiError(error.message, 400);
-    return (data ?? []).map(mapActivity);
+    return dedupeStoredActivities((data ?? []).map(mapActivity));
   },
 
   fetch: async (tripId: string) => {
     const trip = await tripsApi.get(tripId);
-    let activities = fallbackActivities(trip.destination, trip.activity_interests);
-
-    if (trip.latitude !== null && trip.longitude !== null) {
-      try {
-        const { data, error } = await supabase.functions.invoke('activities-search', {
-          body: {
-            destination: trip.destination,
-            lat: trip.latitude,
-            lon: trip.longitude,
-            interests: trip.activity_interests,
-          },
-        });
-
-        if (!error) {
-          activities = normalizeActivities(data?.activities ?? data, trip.destination, trip.activity_interests);
-        }
-      } catch {
-        activities = fallbackActivities(trip.destination, trip.activity_interests);
-      }
-    }
+    const destinations = tripDestinations(trip, { dedupe: true });
+    const destinationActivities = await Promise.all(destinations.map(async (destination) => ({
+      destination: destination.destination,
+      activities: await fetchActivitiesForDestination(destination, trip.activity_interests),
+    })));
 
     const existing = await activitiesApi.list(tripId);
-    const existingKeys = new Set(existing.map((activity) => (
-      activity.external_id ? `id:${activity.external_id}` : `name:${activity.activity_name.toLowerCase()}`
-    )));
+    const existingKeys = new Set(existing.map(activityStorageKey));
+    const nextKeys = new Set<string>();
 
-    const rows = activities
-      .filter((activity) => {
-        const key = activity.external_id ? `id:${activity.external_id}` : `name:${activity.activity_name.toLowerCase()}`;
-        return !existingKeys.has(key);
-      })
-      .map((activity) => ({ ...activity, trip_id: tripId, selected: false }));
+    const rows = destinationActivities.flatMap(({ destination, activities }) => (
+      activities
+        .filter((activity) => {
+          const key = activityStorageKey({ ...activity, destination });
+          if (existingKeys.has(key) || nextKeys.has(key)) return false;
+          nextKeys.add(key);
+          return true;
+        })
+        .map((activity) => ({ ...activity, trip_id: tripId, destination, selected: false }))
+    ));
 
     if (rows.length > 0) {
       const { error } = await supabase.from('trip_activities').insert(rows);

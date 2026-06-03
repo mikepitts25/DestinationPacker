@@ -3,6 +3,7 @@ import { ActivityIndicator, Text } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import { useTrip } from '@/hooks/useTrips';
+import { tripDestinations } from '@/lib/trips/destinations';
 import {
   tripAdvisorGuideForDestination,
   type AdvisorItem,
@@ -27,24 +28,36 @@ export default function AdvisorScreen() {
     );
   }
 
-  const guide = tripAdvisorGuideForDestination(trip.destination);
+  const destinationGuides = tripDestinations(trip, { dedupe: true }).map((destination) => ({
+    destination: destination.destination,
+    guide: tripAdvisorGuideForDestination(destination.destination),
+  }));
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.summary}>
-        <Text style={styles.destination}>{trip.destination}</Text>
+        <Text style={styles.destination}>
+          {destinationGuides.map((guide) => guide.destination).join(' -> ')}
+        </Text>
         <Text style={styles.summaryText}>
           Local foods, gift ideas, customs, and practical notes for this trip.
         </Text>
       </View>
 
-      {SECTIONS.map((section) => (
-        <AdvisorSection
-          key={section.key}
-          title={section.title}
-          icon={section.icon}
-          items={guide[section.key]}
-        />
+      {destinationGuides.map(({ destination, guide }) => (
+        <View key={destination} style={styles.destinationBlock}>
+          {destinationGuides.length > 1 && (
+            <Text style={styles.destinationBlockTitle}>{destination}</Text>
+          )}
+          {SECTIONS.map((section) => (
+            <AdvisorSection
+              key={`${destination}-${section.key}`}
+              title={section.title}
+              icon={section.icon}
+              items={guide[section.key]}
+            />
+          ))}
+        </View>
       ))}
     </ScrollView>
   );
@@ -85,6 +98,8 @@ const styles = StyleSheet.create({
   },
   destination: { ...Typography.h2, color: Colors.onSurface, marginBottom: 4 },
   summaryText: { ...Typography.body, color: Colors.muted },
+  destinationBlock: { marginBottom: Spacing.md },
+  destinationBlockTitle: { ...Typography.h2, color: Colors.onSurface, marginBottom: Spacing.md },
   section: { marginBottom: Spacing.lg },
   sectionTitle: { ...Typography.h3, color: Colors.onSurface, marginBottom: Spacing.sm },
   item: {

@@ -77,6 +77,24 @@ class TestGeneratePackingList:
         assert "Phone charger" in names
         assert "Toothbrush" in names
 
+    def test_optional_entertainment_items_present(self):
+        trip = make_trip()
+        items = generate_packing_list(trip)
+        by_name = {i.item_name: i for i in items}
+
+        book = by_name["Favorite book or e-reader"]
+        game = by_name["Travel-size game / deck of cards"]
+        downloads = by_name["Downloaded movies, podcasts, or playlists"]
+
+        assert book.category == "Entertainment"
+        assert book.quantity == 1
+        assert book.essential is False
+        assert book.source == "rule_engine"
+        assert game.category == "Entertainment"
+        assert game.essential is False
+        assert downloads.category == "Entertainment"
+        assert downloads.essential is False
+
     def test_flight_items_added(self):
         trip = make_trip(travel_method=TravelMethod.flight)
         items = generate_packing_list(trip)

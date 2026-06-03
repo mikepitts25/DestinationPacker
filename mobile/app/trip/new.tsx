@@ -9,9 +9,13 @@ import { packingApi, weatherApi } from '@/services/api';
 import { DateRangeCalendar } from '@/components/DateRangeCalendar';
 import { Colors, Spacing, Radius } from '@/constants/theme';
 import { ACTIVITY_INTEREST_GROUPS } from '@/lib/activities/interests';
+import {
+  buildWizardSteps,
+  legProgressLabel,
+  primaryQuestionForStep,
+  type TripRouteMode,
+} from '@/lib/trips/newTripFlow';
 import type { AccommodationType, ActivityInterest, TravelMethod, TripCreate, TripLeg } from '@/types';
-
-const STEPS = ['Destination', 'Dates', 'How', 'Stay', 'Details'];
 
 const TRAVEL_METHODS: { value: TravelMethod; label: string; emoji: string }[] = [
   { value: 'flight', label: 'Flight', emoji: '✈️' },
@@ -58,6 +62,7 @@ function currentLegFromForm(form: Partial<TripCreate>): TripLeg | null {
 
 export default function NewTripScreen() {
   const [step, setStep] = useState(0);
+  const [routeMode, setRouteMode] = useState<TripRouteMode | null>(null);
   const [form, setForm] = useState<Partial<TripCreate>>({
     travelers: 1,
     male_travelers: 1,
@@ -77,7 +82,11 @@ export default function NewTripScreen() {
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const { mutateAsync: createTrip, isPending } = useCreateTrip();
-  const progress = (step + 1) / STEPS.length;
+  const isMultiLeg = routeMode === 'multi';
+  const steps = buildWizardSteps(isMultiLeg);
+  const currentStep = steps[step];
+  const currentStopNumber = (form.legs?.length ?? 0) + 1;
+  const progress = (step + 1) / steps.length;
 
   const handleDestinationSearch = useCallback((query: string) => {
     setDestQuery(query);
@@ -105,22 +114,25 @@ export default function NewTripScreen() {
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
-    if (step === 0 && !form.destination) errs.destination = 'Please enter a destination';
-    if (step === 1) {
+    if (currentStep === 'Trip Type' && !routeMode) errs.routeMode = 'Choose one destination or multi-stop route';
+    if ((currentStep === 'Destination' || currentStep === 'Stop') && !form.destination) {
+      errs.destination = isMultiLeg ? 'Please enter this stop' : 'Please enter a destination';
+    }
+    if (currentStep === 'Dates') {
       if (!form.start_date) errs.start_date = 'Please select a start date';
       if (!form.end_date) errs.end_date = 'Please select an end date';
       if (form.start_date && form.end_date && form.start_date > form.end_date) errs.end_date = 'End date must be after start date';
     }
-    if (step === 2 && !form.travel_method) errs.travel_method = 'Please select a travel method';
-    if (step === 3 && !form.accommodation) errs.accommodation = 'Please select accommodation';
-    if (step === 4 && ((form.male_travelers ?? 0) + (form.female_travelers ?? 0) + (form.children ?? 0)) < 1) errs.travelers = 'Please add at least one traveler';
+    if ((currentStep === 'How' || currentStep === 'Transport') && !form.travel_method) errs.travel_method = 'Please select a travel method';
+    if (currentStep === 'Stay' && !form.accommodation) errs.accommodation = 'Please select accommodation';
+    if (currentStep === 'Details' && ((form.male_travelers ?? 0) + (form.female_travelers ?? 0) + (form.children ?? 0)) < 1) errs.travelers = 'Please add at least one traveler';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const handleNext = () => {
     if (!validate()) return;
-    if (step < STEPS.length - 1) setStep((s) => s + 1);
+    if (step < steps.length - 1) setStep((s) => s + 1);
     else handleSubmit();
   };
 
@@ -197,7 +209,7 @@ export default function NewTripScreen() {
     }));
     setDestQuery('');
     setSuggestions([]);
-    setStep(0);
+    setStep(1);
   };
 
   const tripDays = durationDays(form.start_date, form.end_date);
@@ -224,8 +236,8 @@ export default function NewTripScreen() {
               <View style={styles.headerBtn} />
             )}
             <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>{STEPS[step]}</Text>
-              <Text style={styles.headerSub}>Step {step + 1} of {STEPS.length}</Text>
+              <Text style={styles.headerTitle}>{currentStep}</Text>
+              <Text style={styles.headerSub}>Step {step + 1} of {steps.length}</Text>
             </View>
             <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
               <Text style={styles.headerBtnText}>✕</Text>
@@ -242,14 +254,48 @@ export default function NewTripScreen() {
       {/* White body */}
       <View style={styles.body}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          {step === 0 && (
+          {currentStep === 'Trip Type' && (
             <View>
-              <Text style={styles.question}>Where are you going? 🌍</Text>
+              <Text style={styles.question}>{primaryQuestionForStep(currentStep, isMultiLeg, currentStopNumber)}</Text>
+              <TouchableOpacity
+                style={[styles.optionCard, routeMode === 'single' && styles.optionCardSelected]}
+                onPress={() => setRouteMode('single')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.optionEmoji}>📍</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.optionLabel, routeMode === 'single' && styles.optionLabelSelected]}>One destination</Text>
+                  <Text style={styles.optionSub}>A single city or stay, with one travel method and accommodation type.</Text>
+                </View>
+                {routeMode === 'single' && <Text style={styles.optionCheck}>✓</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.optionCard, routeMode === 'multi' && styles.optionCardSelected]}
+                onPress={() => setRouteMode('multi')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.optionEmoji}>🧭</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.optionLabel, routeMode === 'multi' && styles.optionLabelSelected]}>Multi-stop route</Text>
+                  <Text style={styles.optionSub}>One trip with several stops, each with its own dates, transport, and stay.</Text>
+                </View>
+                {routeMode === 'multi' && <Text style={styles.optionCheck}>✓</Text>}
+              </TouchableOpacity>
+              <HelperText type="error" visible={!!errors.routeMode}>{errors.routeMode}</HelperText>
+            </View>
+          )}
+
+          {(currentStep === 'Destination' || currentStep === 'Stop') && (
+            <View>
+              {isMultiLeg && (
+                <Text style={styles.routeContext}>{legProgressLabel(form.legs?.length ?? 0, currentStopNumber)}</Text>
+              )}
+              <Text style={styles.question}>{primaryQuestionForStep(currentStep, isMultiLeg, currentStopNumber)} 🌍</Text>
               <TextInput
-                label="Destination"
+                label={isMultiLeg ? `Stop ${currentStopNumber}` : 'Destination'}
                 value={destQuery}
                 onChangeText={handleDestinationSearch}
-                placeholder="e.g. Tokyo, Japan"
+                placeholder={isMultiLeg ? 'e.g. Paris, France' : 'e.g. Tokyo, Japan'}
                 style={styles.input}
                 error={!!errors.destination}
                 autoFocus
@@ -270,9 +316,12 @@ export default function NewTripScreen() {
             </View>
           )}
 
-          {step === 1 && (
+          {currentStep === 'Dates' && (
             <View>
-              <Text style={styles.question}>When are you traveling? 📅</Text>
+              {isMultiLeg && (
+                <Text style={styles.routeContext}>{legProgressLabel(form.legs?.length ?? 0, currentStopNumber)}</Text>
+              )}
+              <Text style={styles.question}>{primaryQuestionForStep(currentStep, isMultiLeg, currentStopNumber)} 📅</Text>
               <DateRangeCalendar
                 startDate={form.start_date}
                 endDate={form.end_date}
@@ -298,9 +347,12 @@ export default function NewTripScreen() {
             </View>
           )}
 
-          {step === 2 && (
+          {(currentStep === 'How' || currentStep === 'Transport') && (
             <View>
-              <Text style={styles.question}>How are you getting there? 🚀</Text>
+              {isMultiLeg && (
+                <Text style={styles.routeContext}>{legProgressLabel(form.legs?.length ?? 0, currentStopNumber)}</Text>
+              )}
+              <Text style={styles.question}>{primaryQuestionForStep(currentStep, isMultiLeg, currentStopNumber)} 🚀</Text>
               {TRAVEL_METHODS.map((m) => {
                 const sel = form.travel_method === m.value;
                 return (
@@ -320,9 +372,12 @@ export default function NewTripScreen() {
             </View>
           )}
 
-          {step === 3 && (
+          {currentStep === 'Stay' && (
             <View>
-              <Text style={styles.question}>Where are you staying? 🏨</Text>
+              {isMultiLeg && (
+                <Text style={styles.routeContext}>{legProgressLabel(form.legs?.length ?? 0, currentStopNumber)}</Text>
+              )}
+              <Text style={styles.question}>{primaryQuestionForStep(currentStep, isMultiLeg, currentStopNumber)} 🏨</Text>
               <View style={styles.grid}>
                 {ACCOMMODATION_TYPES.map((a) => {
                   const sel = form.accommodation === a.value;
@@ -341,7 +396,7 @@ export default function NewTripScreen() {
               </View>
               {(form.legs?.length ?? 0) > 0 && (
                 <View style={styles.savedLegsBox}>
-                  <Text style={styles.savedLegsTitle}>Saved legs</Text>
+                  <Text style={styles.savedLegsTitle}>Stops in this route</Text>
                   {form.legs?.map((leg, index) => (
                     <Text key={`${leg.destination}-${index}`} style={styles.savedLeg}>
                       {index + 1}. {leg.destination} · {leg.travel_method.replace('_', ' ')} · {leg.accommodation}
@@ -349,16 +404,18 @@ export default function NewTripScreen() {
                   ))}
                 </View>
               )}
-              <TouchableOpacity style={styles.addLegBtn} onPress={handleAddAnotherLeg}>
-                <Text style={styles.addLegText}>+ Add another leg</Text>
-              </TouchableOpacity>
+              {isMultiLeg && (
+                <TouchableOpacity style={styles.addLegBtn} onPress={handleAddAnotherLeg}>
+                  <Text style={styles.addLegText}>Save this stop and add the next stop</Text>
+                </TouchableOpacity>
+              )}
               <HelperText type="error" visible={!!errors.accommodation}>{errors.accommodation}</HelperText>
             </View>
           )}
 
-          {step === 4 && (
+          {currentStep === 'Details' && (
             <View>
-              <Text style={styles.question}>Almost done! 🎉</Text>
+              <Text style={styles.question}>{primaryQuestionForStep(currentStep, isMultiLeg, currentStopNumber)} 🎉</Text>
 
               <Text style={styles.fieldLabel}>Travelers</Text>
               <TravelerCounter label="👨 Male" value={form.male_travelers ?? 0} onMinus={() => updateTravelerCount('male_travelers', -1)} onPlus={() => updateTravelerCount('male_travelers', 1)} />
@@ -439,7 +496,7 @@ export default function NewTripScreen() {
             >
               {(isPending || isSubmitting)
                 ? <ActivityIndicator color="#FFFFFF" size={20} />
-                : <Text style={styles.nextBtnText}>{step === STEPS.length - 1 ? '✨ Generate Packing List' : 'Next →'}</Text>
+                : <Text style={styles.nextBtnText}>{step === steps.length - 1 ? '✨ Generate Packing List' : 'Next →'}</Text>
               }
             </LinearGradient>
           </TouchableOpacity>
@@ -487,6 +544,15 @@ const styles = StyleSheet.create({
   },
   content: { padding: Spacing.lg, paddingBottom: 120 },
   question: { fontSize: 22, fontWeight: '700', color: Colors.onSurface, marginBottom: Spacing.lg },
+  routeContext: {
+    alignSelf: 'flex-start',
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: Spacing.xs,
+  },
   input: { marginBottom: Spacing.xs, backgroundColor: Colors.surface },
   suggestionsBox: {
     backgroundColor: Colors.surface,
@@ -523,6 +589,7 @@ const styles = StyleSheet.create({
   optionEmoji: { fontSize: 24, marginRight: Spacing.md },
   optionLabel: { flex: 1, fontSize: 15, color: Colors.onSurface, fontWeight: '500' },
   optionLabelSelected: { color: Colors.primary, fontWeight: '700' },
+  optionSub: { fontSize: 12, color: Colors.muted, marginTop: 3, lineHeight: 17 },
   optionCheck: { fontSize: 18, color: Colors.primary },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   gridCard: {

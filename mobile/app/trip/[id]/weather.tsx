@@ -1,10 +1,11 @@
-import { View, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
 import { useTrip } from '@/hooks/useTrips';
-import { useWeatherForecast } from '@/hooks/useWeather';
+import { useTripWeatherForecasts } from '@/hooks/useWeather';
 import { Colors, Spacing, Radius } from '@/constants/theme';
-import type { WeatherDay } from '@/types';
+import type { WeatherDay, WeatherForecast } from '@/types';
+import type { TripDestination } from '@/lib/trips/destinations';
 
 function conditionIcon(day: WeatherDay): string {
   if (day.has_snow) return '❄️';
@@ -16,25 +17,10 @@ function conditionIcon(day: WeatherDay): string {
 
 export default function WeatherScreen() {
   const { id: tripId } = useLocalSearchParams<{ id: string }>();
-  const { data: trip } = useTrip(tripId);
-  const { data: forecast, isLoading, isFetching, refetch } = useWeatherForecast(
-    trip?.latitude ?? null,
-    trip?.longitude ?? null,
-    trip?.destination ?? '',
-    trip?.start_date,
-    trip?.end_date,
-  );
+  const { data: trip, isLoading: isTripLoading } = useTrip(tripId);
+  const { data: forecasts, isLoading, isFetching, refetch } = useTripWeatherForecasts(trip);
 
-  if (!trip?.latitude || !trip?.longitude) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.bigEmoji}>🌍</Text>
-        <Text style={styles.noDataText}>No coordinates found for this destination.</Text>
-      </View>
-    );
-  }
-
-  if (isLoading) {
+  if (isTripLoading || isLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={Colors.primary} />
@@ -43,11 +29,59 @@ export default function WeatherScreen() {
     );
   }
 
-  if (!forecast) {
+  if (trip && forecasts?.every((item) => !item.forecast)) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.bigEmoji}>🌍</Text>
+        <Text style={styles.noDataText}>No coordinates found for this trip.</Text>
+      </View>
+    );
+  }
+
+  if (!forecasts || forecasts.length === 0) {
     return (
       <View style={styles.centered}>
         <Text style={styles.bigEmoji}>⚠️</Text>
         <Text style={styles.noDataText}>Weather data unavailable.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      contentContainerStyle={styles.list}
+      showsVerticalScrollIndicator={false}
+    >
+      {forecasts.map(({ destination, forecast }) => (
+        <ForecastBlock
+          key={`${destination.destination}-${destination.start_date}`}
+          destination={destination}
+          forecast={forecast}
+          isFetching={isFetching}
+          onRefresh={() => refetch()}
+        />
+      ))}
+      <View style={{ height: 40 }} />
+    </ScrollView>
+  );
+}
+
+function ForecastBlock({
+  destination,
+  forecast,
+  isFetching,
+  onRefresh,
+}: {
+  destination: TripDestination;
+  forecast: WeatherForecast | null;
+  isFetching: boolean;
+  onRefresh: () => void;
+}) {
+  if (!forecast) {
+    return (
+      <View style={styles.unavailableCard}>
+        <Text style={styles.destinationTitle}>{destination.destination}</Text>
+        <Text style={styles.noDataText}>No coordinates found for this destination.</Text>
       </View>
     );
   }
@@ -59,58 +93,56 @@ export default function WeatherScreen() {
   const minTemp = firstDay ? Math.round(firstDay.temp_min) : '—';
 
   return (
-    <FlatList
-      data={forecast.days}
-      keyExtractor={(d) => d.date}
-      contentContainerStyle={styles.list}
-      showsVerticalScrollIndicator={false}
-      ListHeaderComponent={
-        <View>
-          {/* Hero */}
-          <View style={styles.hero}>
-            <Text style={styles.heroIcon}>⛅</Text>
-            <Text style={styles.heroTemp}>{avgTemp}°C</Text>
-            <Text style={styles.heroCondition}>{forecast.summary}</Text>
-            <Text style={styles.heroRange}>High {maxTemp}°  ·  Low {minTemp}°</Text>
-          </View>
+    <View style={styles.forecastBlock}>
+      <Text style={styles.destinationTitle}>{destination.destination}</Text>
+      {/* Hero */}
+      <View style={styles.hero}>
+        <Text style={styles.heroIcon}>⛅</Text>
+        <Text style={styles.heroTemp}>{avgTemp}°C</Text>
+        <Text style={styles.heroCondition}>{forecast.summary}</Text>
+        <Text style={styles.heroRange}>High {maxTemp}°  ·  Low {minTemp}°</Text>
+      </View>
 
-          {/* Condition cards */}
-          <View style={styles.condRow}>
-            {forecast.conditions.slice(0, 3).map((c) => (
-              <View key={c} style={styles.condCard}>
-                <Text style={styles.condEmoji}>
-                  {c.toLowerCase().includes('rain') ? '🌧️' : c.toLowerCase().includes('wind') ? '💨' : c.toLowerCase().includes('snow') ? '❄️' : '🌡️'}
-                </Text>
-                <Text style={styles.condText}>{c}</Text>
-              </View>
-            ))}
-            {forecast.conditions.length === 0 && (
-              <>
-                <View style={styles.condCard}><Text style={styles.condEmoji}>💧</Text><Text style={styles.condText}>Humidity</Text></View>
-                <View style={styles.condCard}><Text style={styles.condEmoji}>💨</Text><Text style={styles.condText}>Wind</Text></View>
-                <View style={styles.condCard}><Text style={styles.condEmoji}>🌧️</Text><Text style={styles.condText}>Rain chance</Text></View>
-              </>
-            )}
+      {/* Condition cards */}
+      <View style={styles.condRow}>
+        {forecast.conditions.slice(0, 3).map((c) => (
+          <View key={c} style={styles.condCard}>
+            <Text style={styles.condEmoji}>
+              {c.toLowerCase().includes('rain') ? '🌧️' : c.toLowerCase().includes('wind') ? '💨' : c.toLowerCase().includes('snow') ? '❄️' : '🌡️'}
+            </Text>
+            <Text style={styles.condText}>{c}</Text>
           </View>
+        ))}
+        {forecast.conditions.length === 0 && (
+          <>
+            <View style={styles.condCard}><Text style={styles.condEmoji}>💧</Text><Text style={styles.condText}>Humidity</Text></View>
+            <View style={styles.condCard}><Text style={styles.condEmoji}>💨</Text><Text style={styles.condText}>Wind</Text></View>
+            <View style={styles.condCard}><Text style={styles.condEmoji}>🌧️</Text><Text style={styles.condText}>Rain chance</Text></View>
+          </>
+        )}
+      </View>
 
-          {/* Source + refresh */}
-          <View style={styles.sourceRow}>
-            <Text style={styles.sourceText}>Via {forecast.source.name} · Updated {formatUpdatedAt(forecast.updated_at)}</Text>
-            <TouchableOpacity style={styles.refreshBtn} onPress={() => refetch()} disabled={isFetching}>
-              {isFetching
-                ? <ActivityIndicator size={14} color={Colors.primary} />
-                : <Text style={styles.refreshBtnText}>↻ Update</Text>
-              }
-            </TouchableOpacity>
-          </View>
+      {/* Source + refresh */}
+      <View style={styles.sourceRow}>
+        <Text style={styles.sourceText}>Via {forecast.source.name} · Updated {formatUpdatedAt(forecast.updated_at)}</Text>
+        <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh} disabled={isFetching}>
+          {isFetching
+            ? <ActivityIndicator size={14} color={Colors.primary} />
+            : <Text style={styles.refreshBtnText}>↻ Update</Text>
+          }
+        </TouchableOpacity>
+      </View>
 
-          {/* Section label */}
-          <Text style={styles.sectionLabel}>TRIP FORECAST</Text>
-        </View>
-      }
-      renderItem={({ item, index }) => <WeatherDayRow day={item} highlight={index === 0} />}
-      ListFooterComponent={<View style={{ height: 40 }} />}
-    />
+      {/* Section label */}
+      <Text style={styles.sectionLabel}>TRIP FORECAST</Text>
+      {forecast.days.map((day, index) => (
+        <WeatherDayRow
+          key={`${forecast.destination}-${day.date}`}
+          day={day}
+          highlight={index === 0}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -152,6 +184,16 @@ const styles = StyleSheet.create({
   noDataText: { fontSize: 15, color: Colors.muted, textAlign: 'center' },
   loadingText: { fontSize: 14, color: Colors.muted, marginTop: Spacing.md },
   list: { padding: Spacing.md, backgroundColor: Colors.background },
+  forecastBlock: { marginBottom: Spacing.xl },
+  destinationTitle: { fontSize: 18, fontWeight: '800', color: Colors.onSurface, marginBottom: Spacing.sm },
+  unavailableCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
   hero: {
     alignItems: 'center',
     backgroundColor: Colors.surface,

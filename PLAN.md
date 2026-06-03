@@ -23,7 +23,7 @@ The legacy `backend/` FastAPI app can remain as reference during migration, but 
 - `mobile/services/api.ts` now uses Supabase for auth, trips, packing items, activities, profiles, places, and weather-facing APIs.
 - `mobile/lib/packing/ruleEngine.ts` ports the deterministic packing rules from Python to TypeScript.
 - `mobile/lib/packing/__tests__/ruleEngine.test.ts` covers essentials, weather rules, activity rules, quantity scaling, and duplicate merging.
-- `supabase/migrations/0001_initial_schema.sql` creates profiles, trips, packing items, trip activities, trip shares, cache, triggers, and RLS policies.
+- `supabase/migrations/20260519064054_initial_schema.sql` creates profiles, trips, packing items, trip activities, trip shares, cache, triggers, and RLS policies.
 - `supabase/functions/places-search` proxies and caches Nominatim.
 - `supabase/functions/activities-search` proxies and caches Overpass and returns fallbacks on provider failure.
 - `supabase/functions/ai-packing` calls Gemini with strict JSON parsing and graceful failure.

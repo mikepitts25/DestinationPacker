@@ -68,7 +68,7 @@ Apply the database schema and RLS policies:
 supabase db push
 ```
 
-Or paste `supabase/migrations/0001_initial_schema.sql` into the Supabase SQL editor.
+Or paste `supabase/migrations/20260519064054_initial_schema.sql` into the Supabase SQL editor.
 
 Deploy Edge Functions:
 

@@ -56,6 +56,12 @@ const ALWAYS_RULES: FixedRule[] = [
   ['Clothing', 'Pajamas / sleepwear', 1, false, 'per_traveler'],
   ['Misc', 'Reusable water bottle', 1, false, 'per_traveler'],
   ['Misc', 'Small day bag / backpack', 1, false],
+  ['Entertainment', 'Favorite book or e-reader', 1, false],
+  ['Entertainment', 'Travel-size game / deck of cards', 1, false],
+  ['Entertainment', 'Downloaded movies, podcasts, or playlists', 1, false],
+  ['Entertainment', 'Journal or sketchbook', 1, false],
+  ['Entertainment', 'Pen', 1, false],
+  ['Entertainment', 'Offline maps / saved trip notes', 1, false],
 ];
 
 const DURATION_RULES: FormulaRule[] = [
