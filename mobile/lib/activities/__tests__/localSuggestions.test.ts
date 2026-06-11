@@ -21,6 +21,17 @@ describe('local activity suggestions', () => {
     expect(sriLankaNames).toContain('Buy: Ceylon tea');
   });
 
+  it('adds hands-on destination experiences for food and culture trips', () => {
+    const italyNames = localActivitySuggestionsForDestination('Florence, Italy').map((suggestion) => suggestion.activity_name);
+    const thailandNames = localActivitySuggestionsForDestination('Chiang Mai, Thailand').map((suggestion) => suggestion.activity_name);
+    const belgiumNames = localActivitySuggestionsForDestination('Brussels, Belgium').map((suggestion) => suggestion.activity_name);
+
+    expect(italyNames).toContain('Experience: Fresh pasta cooking class');
+    expect(thailandNames).toContain('Experience: Thai cooking class with market visit');
+    expect(belgiumNames).toContain('Experience: Belgian chocolate workshop');
+  });
+
+
   it('appends local suggestions without duplicating existing activities', () => {
     const activities = appendLocalActivitySuggestions([
       {
@@ -37,12 +48,16 @@ describe('local activity suggestions', () => {
     expect(activities.map((activity) => activity.activity_name)).toContain('Buy: Ampelmann souvenir');
   });
 
-  it('falls back to a generic local market suggestion for unknown destinations', () => {
+  it('falls back to destination-specific guide prompts for unknown destinations', () => {
     const suggestions = localActivitySuggestionsForDestination('Somewhere New');
 
     expect(suggestions).toEqual([
       expect.objectContaining({
-        activity_name: 'Browse local markets for souvenirs',
+        activity_name: 'Experience: Somewhere New food or craft workshop',
+        activity_type: 'dining',
+      }),
+      expect.objectContaining({
+        activity_name: 'Buy: Small local specialty from Somewhere New',
         activity_type: 'souvenirs',
       }),
     ]);

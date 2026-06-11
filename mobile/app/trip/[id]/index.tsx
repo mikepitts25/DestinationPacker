@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTrip, useDeleteTrip } from '@/hooks/useTrips';
 import { Colors, Spacing } from '@/constants/theme';
 import { formatTripDurationBadge, formatTripRoute } from '@/lib/trips/tripDisplay';
+import OverviewScreen from './overview';
 import PackingScreen from './packing';
 import ActivitiesScreen from './activities';
 import WeatherScreen from './weather';
@@ -100,6 +101,7 @@ export default function TripDetailScreen() {
           tabBarPressColor: 'rgba(10,147,150,0.1)',
         }}
       >
+        <Tab.Screen name="Overview" component={OverviewScreen} initialParams={{ id }} />
         <Tab.Screen name="Packing" component={PackingScreen} initialParams={{ id }} />
         <Tab.Screen name="Activities" component={ActivitiesScreen} initialParams={{ id }} />
         <Tab.Screen name="Weather" component={WeatherScreen} initialParams={{ id }} />

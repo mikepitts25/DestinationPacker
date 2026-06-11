@@ -23,3 +23,32 @@ export function formatTripDurationBadge(durationDays: number): string {
   const nights = days - 1;
   return `${nights} ${nights === 1 ? 'Night' : 'Nights'}`;
 }
+
+function utcDateOnly(date: string | Date) {
+  if (date instanceof Date) {
+    return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  }
+
+  const [year, month, day] = date.split('-').map(Number);
+  return Date.UTC(year, (month || 1) - 1, day || 1);
+}
+
+export function formatTripTimingBadge(
+  trip: Pick<Trip, 'start_date' | 'end_date'>,
+  now = new Date(),
+): string {
+  const today = utcDateOnly(now);
+  const start = utcDateOnly(trip.start_date);
+  const end = utcDateOnly(trip.end_date);
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  if (today > end) return 'Completed';
+  if (today >= start) return 'Traveling now';
+
+  const daysUntil = Math.round((start - today) / dayMs);
+  if (daysUntil <= 0) return 'Starts today';
+  if (daysUntil === 1) return 'Tomorrow';
+  if (daysUntil <= 14) return `In ${daysUntil} days`;
+
+  return `Starts ${new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}`;
+}

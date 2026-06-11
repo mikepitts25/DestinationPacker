@@ -128,7 +128,15 @@ export default function LoginScreen() {
         </View>
 
         <Text style={styles.terms}>
-          By signing in, you agree to our Terms of Service and Privacy Policy.
+          By signing in, you agree to our{' '}
+          <Text style={styles.termsLink} onPress={() => router.push('/terms')}>
+            Terms of Service
+          </Text>
+          {' '}and{' '}
+          <Text style={styles.termsLink} onPress={() => router.push('/privacy')}>
+            Privacy Policy
+          </Text>
+          .
         </Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -181,5 +189,9 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.muted,
     textAlign: 'center',
+  },
+  termsLink: {
+    color: Colors.primary,
+    fontWeight: '600',
   },
 });

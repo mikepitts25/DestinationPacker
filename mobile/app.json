@@ -16,7 +16,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.destinationpacker.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "We use your location to suggest nearby activities."
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -24,10 +24,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1a73e8"
       },
-      "package": "com.destinationpacker.app",
-      "permissions": [
-        "ACCESS_FINE_LOCATION"
-      ]
+      "package": "com.destinationpacker.app"
     },
     "web": {
       "bundler": "metro",
@@ -36,14 +33,7 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#1a73e8"
-        }
-      ]
+      "expo-font"
     ],
     "extra": {
       "router": {},

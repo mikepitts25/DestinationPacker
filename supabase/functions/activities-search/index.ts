@@ -25,6 +25,19 @@ type OverpassElement = {
   tags?: Record<string, string>;
 };
 
+type ActivitySuggestion = {
+  activity_name: string;
+  activity_type: string;
+  description: string | null;
+  source: string;
+  external_id: string | null;
+  photo_url: string | null;
+  rating: number | null;
+  review_count: number | null;
+  rating_source: string | null;
+  distance_from_center_km: number | null;
+};
+
 const interestActivityTypes: Record<string, string[]> = {
   hiking: ["outdoor"],
   cycling: ["outdoor", "sports"],
@@ -54,6 +67,36 @@ const interestActivityTypes: Record<string, string[]> = {
   backpacking: ["outdoor", "adventure"],
 };
 
+const allowedActivityTypes = new Set([
+  "outdoor",
+  "water",
+  "cultural",
+  "nightlife",
+  "dining",
+  "sports",
+  "beach",
+  "snow",
+  "business",
+  "wellness",
+  "shopping",
+  "souvenirs",
+  "family",
+  "adventure",
+]);
+
+const genericNamePatterns = [
+  /^explore .+ city center$/i,
+  /^visit local museums$/i,
+  /^try local cuisine$/i,
+  /^day hike or nature walk$/i,
+  /^local markets and shopping$/i,
+  /^browse local markets/i,
+  /^book a notable restaurant$/i,
+  /^adventure activity$/i,
+  /^family-friendly attraction$/i,
+  /^spa, wellness, or fitness session$/i,
+];
+
 async function readCache(cacheKey: string) {
   const { data } = await admin
     .from("api_cache")
@@ -75,6 +118,23 @@ async function writeCache(
     payload,
     expires_at: new Date(Date.now() + ttlSeconds * 1000).toISOString(),
   });
+}
+
+function extractJson(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.includes("```")) return trimmed;
+
+  const block = trimmed.split("```")[1] ?? trimmed;
+  return block.startsWith("json") ? block.slice(4).trim() : block.trim();
+}
+
+function normalizedName(name: string) {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function isGenericName(name: string) {
+  const normalized = normalizedName(name);
+  return genericNamePatterns.some((pattern) => pattern.test(normalized));
 }
 
 function classifyTags(tags: Record<string, string>): string {
@@ -141,61 +201,13 @@ function activityMatchesInterests(activityType: string, interests: string[]) {
   );
 }
 
-function fallbackActivities(destination: string, interests: string[] = []) {
-  const activities = [
+function fallbackActivities(destination: string, interests: string[] = []): ActivitySuggestion[] {
+  const activities: ActivitySuggestion[] = [
     {
-      activity_name: `Explore ${destination} city center`,
+      activity_name: `${destination} old town, landmark, or historic building route`,
       activity_type: "cultural",
-      description: "Walk around and discover local neighborhoods.",
-      source: "suggested",
-      external_id: null,
-      photo_url: null,
-      rating: null,
-      review_count: null,
-      rating_source: null,
-      distance_from_center_km: null,
-    },
-    {
-      activity_name: "Visit local museums",
-      activity_type: "cultural",
-      description: "Explore history, art, and culture.",
-      source: "suggested",
-      external_id: null,
-      photo_url: null,
-      rating: null,
-      review_count: null,
-      rating_source: null,
-      distance_from_center_km: null,
-    },
-    {
-      activity_name: "Try local cuisine",
-      activity_type: "dining",
-      description: "Sample authentic local food and restaurants.",
-      source: "suggested",
-      external_id: null,
-      photo_url: null,
-      rating: null,
-      review_count: null,
-      rating_source: null,
-      distance_from_center_km: null,
-    },
-    {
-      activity_name: "Day hike or nature walk",
-      activity_type: "outdoor",
-      description: "Discover the natural surroundings.",
-      source: "suggested",
-      external_id: null,
-      photo_url: null,
-      rating: null,
-      review_count: null,
-      rating_source: null,
-      distance_from_center_km: null,
-    },
-    {
-      activity_name: "Beach or waterfront time",
-      activity_type: "beach",
       description:
-        "Spend time by the water if the destination has a beach, lake, riverfront, or pool area.",
+        "Build a sightseeing route around older buildings, monuments, churches, castles, ruins, or preserved streets.",
       source: "suggested",
       external_id: null,
       photo_url: null,
@@ -205,35 +217,62 @@ function fallbackActivities(destination: string, interests: string[] = []) {
       distance_from_center_km: null,
     },
     {
-      activity_name: "Evening drinks or club night",
+      activity_name: `${destination} museum or specialist collection`,
+      activity_type: "cultural",
+      description:
+        "Prioritize museums with a strong local story, not just the largest building on the map.",
+      source: "suggested",
+      external_id: null,
+      photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
+    },
+    {
+      activity_name: `${destination} cooking class, tasting, or food market walk`,
+      activity_type: "dining",
+      description:
+        "Look for a hands-on class or tasting tied to local ingredients, drinks, chocolate, spices, or regional dishes.",
+      source: "suggested",
+      external_id: null,
+      photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
+    },
+    {
+      activity_name: `${destination} local market and independent shops`,
+      activity_type: "shopping",
+      description:
+        "Browse markets and small shops for practical gifts, food souvenirs, crafts, and regional products.",
+      source: "suggested",
+      external_id: null,
+      photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
+    },
+    {
+      activity_name: `${destination} park, garden, viewpoint, or waterfront break`,
+      activity_type: "outdoor",
+      description:
+        "Add a lower-key outdoor stop between heavier museum, meal, and sightseeing plans.",
+      source: "suggested",
+      external_id: null,
+      photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
+    },
+    {
+      activity_name: `${destination} live music, wine bar, or evening venue`,
       activity_type: "nightlife",
       description:
-        "Plan a night out at a bar, lounge, live music venue, or club.",
-      source: "suggested",
-      external_id: null,
-      photo_url: null,
-      rating: null,
-      review_count: null,
-      rating_source: null,
-      distance_from_center_km: null,
-    },
-    {
-      activity_name: "Spa, wellness, or fitness session",
-      activity_type: "wellness",
-      description:
-        "Look for a spa, yoga class, gym session, or wellness activity nearby.",
-      source: "suggested",
-      external_id: null,
-      photo_url: null,
-      rating: null,
-      review_count: null,
-      rating_source: null,
-      distance_from_center_km: null,
-    },
-    {
-      activity_name: "Local markets and shopping",
-      activity_type: "shopping",
-      description: "Browse local markets for souvenirs and goods.",
+        "Choose a specific evening plan that reflects the destination instead of a generic night out.",
       source: "suggested",
       external_id: null,
       photo_url: null,
@@ -248,6 +287,146 @@ function fallbackActivities(destination: string, interests: string[] = []) {
     activityMatchesInterests(activity.activity_type, interests)
   );
   return filtered.length > 0 ? filtered : activities.slice(0, 5);
+}
+
+function suggestedActivityTypes(interests: string[]) {
+  const selected = new Set<string>();
+  for (const interest of interests) {
+    for (const type of interestActivityTypes[interest] ?? []) {
+      selected.add(type);
+    }
+  }
+  return Array.from(selected);
+}
+
+function buildAiPrompt(
+  destination: string,
+  interests: string[],
+  osmActivities: ActivitySuggestion[],
+) {
+  const interestText = interests.length > 0 ? interests.join(", ") : "general sightseeing";
+  const typeText = suggestedActivityTypes(interests).join(", ") || "mixed";
+  const nearbyNames = osmActivities.slice(0, 12).map((activity) => ({
+    name: activity.activity_name,
+    type: activity.activity_type,
+  }));
+
+  return `You are a sharp local travel editor for DestinationPacker. Return strict JSON only.
+
+Create 14 to 18 destination-specific trip suggestions for ${destination}.
+
+Traveler interests: ${interestText}
+Useful activity type mix: ${typeText}
+Nearby map results you may include if they are worth visiting: ${JSON.stringify(nearbyNames)}
+
+The list must feel concrete and useful, not generic. Include a balanced mix of:
+- Named museums, castles, old buildings, viewpoints, ruins, historic districts, landmarks, or cultural places.
+- Hands-on local experiences such as cooking classes, chocolate workshops, wine tastings, tea ceremonies, craft studios, market food tours, or similar experiences when they fit ${destination}.
+- Local foods, drinks, markets, independent shops, and destination-specific things to buy. For buyable items, prefix activity_name with "Buy: ".
+- Outdoor, family, nightlife, wellness, beach, or adventure suggestions only when they fit the destination or requested interests.
+
+Rules:
+- Prefer actual named places or named destination-specific experiences.
+- Do not return generic names like "Visit local museums", "Try local cuisine", "Local markets and shopping", or "Explore city center".
+- Keep old sightseeing attractions in the mix, but make them specific.
+- Descriptions should explain why this belongs in ${destination}, not how travel works in general.
+- Do not invent street addresses, phone numbers, prices, hours, or booking claims.
+
+Return a JSON array only. Each object must be:
+{
+  "activity_name": "specific name",
+  "activity_type": "outdoor|water|cultural|nightlife|dining|sports|beach|snow|business|wellness|shopping|souvenirs|family|adventure",
+  "description": "one useful sentence"
+}`;
+}
+
+function normalizeAiActivities(value: unknown): ActivitySuggestion[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  return value.flatMap((item: unknown): ActivitySuggestion[] => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    const rawName = typeof record.activity_name === "string" ? record.activity_name.trim() : "";
+    const rawType = typeof record.activity_type === "string" ? record.activity_type.trim() : "cultural";
+    const rawDescription = typeof record.description === "string" ? record.description.trim() : "";
+    if (!rawName || isGenericName(rawName)) return [];
+    if (!allowedActivityTypes.has(rawType)) return [];
+
+    const key = normalizedName(rawName);
+    if (seen.has(key)) return [];
+    seen.add(key);
+
+    return [{
+      activity_name: rawName.slice(0, 140),
+      activity_type: rawType,
+      description: rawDescription ? rawDescription.slice(0, 280) : null,
+      source: "ai_curated",
+      external_id: null,
+      photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
+    }];
+  }).slice(0, 18);
+}
+
+async function generateAiActivities(
+  destination: string,
+  interests: string[],
+  osmActivities: ActivitySuggestion[],
+): Promise<ActivitySuggestion[]> {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) return [];
+
+  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash-lite";
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: buildAiPrompt(destination, interests, osmActivities) }] }],
+      generationConfig: {
+        temperature: 0.65,
+        responseMimeType: "application/json",
+      },
+    }),
+  });
+
+  if (!res.ok) return [];
+
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof text !== "string") return [];
+
+  try {
+    return normalizeAiActivities(JSON.parse(extractJson(text)));
+  } catch {
+    return [];
+  }
+}
+
+function mergeActivities(
+  destination: string,
+  interests: string[],
+  aiActivities: ActivitySuggestion[],
+  osmActivities: ActivitySuggestion[],
+) {
+  const seen = new Set<string>();
+  const merged: ActivitySuggestion[] = [];
+
+  for (const activity of [...aiActivities, ...osmActivities, ...fallbackActivities(destination, interests)]) {
+    const key = normalizedName(activity.activity_name);
+    if (!key || seen.has(key) || isGenericName(activity.activity_name)) continue;
+    if (!activityMatchesInterests(activity.activity_type, interests)) continue;
+    seen.add(key);
+    merged.push(activity);
+    if (merged.length >= 18) break;
+  }
+
+  return merged.length > 0 ? merged : fallbackActivities(destination, interests).slice(0, 8);
 }
 
 function buildDescription(name: string, tags: Record<string, string>) {
@@ -266,8 +445,8 @@ async function searchActivities(
   lon: number,
   interests: string[],
 ) {
-  const interestKey = interests.length > 0 ? interests.sort().join(",") : "all";
-  const cacheKey = `activities:${destination.toLowerCase()}:${lat.toFixed(2)}:${
+  const interestKey = interests.length > 0 ? [...interests].sort().join(",") : "all";
+  const cacheKey = `activities:v2:${destination.toLowerCase()}:${lat.toFixed(2)}:${
     lon.toFixed(2)
   }:${interestKey}`;
   const cached = await readCache(cacheKey);
@@ -296,18 +475,26 @@ async function searchActivities(
     body: new URLSearchParams({ data: query }),
   });
 
-  if (!res.ok) return fallbackActivities(destination, interests);
+  if (!res.ok) {
+    const aiActivities = await generateAiActivities(destination, interests, []);
+    const fallback = mergeActivities(destination, interests, aiActivities, []);
+    await writeCache(cacheKey, fallback, 7 * 24 * 60 * 60);
+    return fallback;
+  }
 
   const data = await res.json();
   if (typeof data?.remark === "string" && data.remark.includes("timed out")) {
-    return fallbackActivities(destination, interests);
+    const aiActivities = await generateAiActivities(destination, interests, []);
+    const fallback = mergeActivities(destination, interests, aiActivities, []);
+    await writeCache(cacheKey, fallback, 7 * 24 * 60 * 60);
+    return fallback;
   }
 
   const elements = Array.isArray(data?.elements)
     ? data.elements as OverpassElement[]
     : [];
   const seen = new Set<string>();
-  const activities = elements.flatMap((element: OverpassElement) => {
+  const osmActivities = elements.flatMap((element: OverpassElement) => {
     const tags = element.tags ?? {};
     const name = tags["name:en"] || tags.name;
     if (!name || seen.has(String(name).toLowerCase())) return [];
@@ -337,10 +524,9 @@ async function searchActivities(
     return a.distance_from_center_km - b.distance_from_center_km;
   }).slice(0, 18);
 
-  const payload = activities.length > 0
-    ? activities
-    : fallbackActivities(destination, interests);
-  await writeCache(cacheKey, payload, 7 * 24 * 60 * 60);
+  const aiActivities = await generateAiActivities(destination, interests, osmActivities);
+  const payload = mergeActivities(destination, interests, aiActivities, osmActivities);
+  await writeCache(cacheKey, payload, 14 * 24 * 60 * 60);
   return payload;
 }
 

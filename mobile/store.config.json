@@ -1,0 +1,21 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "info": {
+      "en-US": {
+        "title": "DestinationPacker",
+        "subtitle": "Smart travel packing lists",
+        "description": "DestinationPacker helps travelers plan trips, create destination-aware packing lists, check weather context, and organize activity ideas before departure.",
+        "keywords": [
+          "travel",
+          "packing",
+          "trip planner",
+          "checklist",
+          "vacation"
+        ],
+        "supportUrl": "https://colibricodellc.com",
+        "privacyPolicyUrl": "https://colibricodellc.com/privacy-policy"
+      }
+    }
+  }
+}

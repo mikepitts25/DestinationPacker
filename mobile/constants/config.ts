@@ -1,4 +1,4 @@
-export const FREE_TRIP_LIMIT = 1;
+export const FREE_TRIP_LIMIT = Number.POSITIVE_INFINITY;
 
 export const ADMOB_BANNER_ID =
   process.env.NODE_ENV === 'production'

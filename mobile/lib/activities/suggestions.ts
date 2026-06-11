@@ -9,173 +9,168 @@ const MAX_SUGGESTIONS_PER_DESTINATION = 18;
 
 type SuggestionSeed = Omit<ActivitySuggestion, 'source' | 'external_id' | 'photo_url'>;
 
-const BASE_FALLBACKS: SuggestionSeed[] = [
-  {
-    activity_name: 'Visit local museums',
-    activity_type: 'cultural',
-    description: 'Explore museums, galleries, and local collections.',
-  },
-  {
-    activity_name: 'Tour monuments and historic landmarks',
-    activity_type: 'cultural',
-    description: 'Visit memorials, monuments, historic buildings, and major city landmarks.',
-  },
-  {
-    activity_name: 'Try local cuisine',
-    activity_type: 'dining',
-    description: 'Sample local restaurants, cafes, markets, and classic dishes.',
-  },
-  {
-    activity_name: 'Day hike or nature walk',
-    activity_type: 'outdoor',
-    description: 'Discover parks, gardens, trails, or natural areas nearby.',
-  },
-  {
-    activity_name: 'Beach or waterfront time',
-    activity_type: 'beach',
-    description: 'Spend time by a beach, lake, riverfront, waterfront, or pool area.',
-  },
-  {
-    activity_name: 'Evening drinks or live music',
-    activity_type: 'nightlife',
-    description: 'Plan a night out at a bar, music venue, club, or late-night neighborhood.',
-  },
-  {
-    activity_name: 'Spa, wellness, or fitness session',
-    activity_type: 'wellness',
-    description: 'Look for a spa, yoga class, gym session, or wellness activity nearby.',
-  },
-  {
-    activity_name: 'Local markets and shopping',
-    activity_type: 'shopping',
-    description: 'Browse local markets, shopping streets, and small independent shops.',
-  },
-  {
-    activity_name: 'Family-friendly attraction',
-    activity_type: 'family',
-    description: 'Look for hands-on museums, aquariums, parks, or kid-friendly attractions.',
-  },
-  {
-    activity_name: 'Adventure activity',
-    activity_type: 'adventure',
-    description: 'Look for guided activities, active day trips, or outdoor adventure options.',
-  },
-];
-
-const INTEREST_FALLBACKS: Partial<Record<ActivityInterest, SuggestionSeed[]>> = {
-  museums: [
+function baseFallbacksForDestination(destination: string): SuggestionSeed[] {
+  return [
     {
-      activity_name: 'Visit local museums',
+      activity_name: `Build a ${destination} history walk around the old center`,
       activity_type: 'cultural',
-      description: 'Explore museums and collections tied to the destination.',
+      description: 'Use the oldest streets, civic buildings, preserved corners, and landmark blocks as a focused cultural route.',
     },
-  ],
-  art_galleries: [
     {
-      activity_name: 'Browse art galleries',
-      activity_type: 'cultural',
-      description: 'Look for galleries, art districts, and local exhibition spaces.',
-    },
-  ],
-  historical_sites: [
-    {
-      activity_name: 'Tour monuments and historic landmarks',
-      activity_type: 'cultural',
-      description: 'Visit monuments, memorials, ruins, castles, or historic buildings.',
-    },
-  ],
-  architecture: [
-    {
-      activity_name: 'Architecture walk',
-      activity_type: 'cultural',
-      description: 'Walk a route focused on notable streets, buildings, and neighborhoods.',
-    },
-  ],
-  fine_dining: [
-    {
-      activity_name: 'Book a notable restaurant',
+      activity_name: `Use ${destination} market tasting as the food anchor`,
       activity_type: 'dining',
-      description: 'Find a well-reviewed restaurant for a planned meal.',
+      description: 'Make one market, bakery, food hall, tasting counter, or signature dish the meal that shapes the day.',
     },
-  ],
-  street_food: [
     {
-      activity_name: 'Try street food or casual eats',
+      activity_name: `Book one hands-on ${destination} food or craft session`,
       activity_type: 'dining',
-      description: 'Look for market stalls, bakeries, food halls, or casual local specialties.',
+      description: 'Choose a class tied to regional food, drink, textiles, ceramics, chocolate, spices, or another craft with local roots.',
     },
-  ],
-  wine_tasting: [
     {
-      activity_name: 'Wine bar or tasting',
-      activity_type: 'dining',
-      description: 'Find a wine bar, tasting room, or restaurant with regional bottles.',
-    },
-  ],
-  craft_beer: [
-    {
-      activity_name: 'Craft beer stop',
-      activity_type: 'nightlife',
-      description: 'Visit a local brewery, beer hall, pub, or taproom.',
-    },
-  ],
-  nightclubs: [
-    {
-      activity_name: 'Club night',
-      activity_type: 'nightlife',
-      description: 'Plan a late-night venue, club, or dance-focused evening.',
-    },
-  ],
-  live_music: [
-    {
-      activity_name: 'Live music venue',
-      activity_type: 'nightlife',
-      description: 'Look for concert halls, clubs, jazz bars, or small live music rooms.',
-    },
-  ],
-  local_markets: [
-    {
-      activity_name: 'Local markets and shopping',
+      activity_name: `Browse ${destination} markets for useful local finds`,
       activity_type: 'shopping',
-      description: 'Browse markets for food, crafts, clothes, and small gifts.',
+      description: 'Use markets and small shops for practical gifts, food souvenirs, crafts, and products that are actually regional.',
     },
-  ],
-  spa_wellness: [
     {
-      activity_name: 'Spa, wellness, or fitness session',
-      activity_type: 'wellness',
-      description: 'Look for a spa, yoga class, gym session, or wellness activity nearby.',
+      activity_name: `Add a low-friction ${destination} viewpoint or waterfront reset`,
+      activity_type: 'outdoor',
+      description: 'Keep one outdoor reset between heavier museum, meal, and sightseeing plans so the day has breathing room.',
     },
-  ],
-  beach_pool: [
-    {
-      activity_name: 'Beach or waterfront time',
-      activity_type: 'beach',
-      description: 'Spend time by a beach, lake, riverfront, waterfront, or pool area.',
-    },
-  ],
-  theme_parks: [
-    {
-      activity_name: 'Theme park or amusement stop',
-      activity_type: 'family',
-      description: 'Look for amusement parks, rides, arcades, or entertainment complexes.',
-    },
-  ],
-  zoos_aquariums: [
-    {
-      activity_name: 'Zoo or aquarium visit',
-      activity_type: 'family',
-      description: 'Find animal parks, aquariums, or conservation-focused attractions.',
-    },
-  ],
-  kid_friendly: [
-    {
-      activity_name: 'Kid-friendly activity',
-      activity_type: 'family',
-      description: 'Look for hands-on museums, playgrounds, parks, or relaxed family stops.',
-    },
-  ],
-};
+  ];
+}
+
+function interestFallbacksForDestination(
+  destination: string,
+  interests: ActivityInterest[],
+): SuggestionSeed[] {
+  return interests.flatMap((interest): SuggestionSeed[] => {
+    switch (interest) {
+      case 'museums':
+        return [{
+          activity_name: `${destination} museum or specialist collection`,
+          activity_type: 'cultural',
+          description: 'Prioritize museums with a strong local story, not just the biggest building on the map.',
+        }];
+      case 'art_galleries':
+        return [{
+          activity_name: `${destination} gallery district or artist studio visit`,
+          activity_type: 'cultural',
+          description: 'Look for current exhibitions, independent galleries, or artist-led spaces tied to the city.',
+        }];
+      case 'historical_sites':
+        return [{
+          activity_name: `${destination} castle, ruins, fort, or heritage site`,
+          activity_type: 'cultural',
+          description: 'Keep castles, archaeological sites, old quarters, monuments, and preserved civic buildings in the mix.',
+        }];
+      case 'architecture':
+        return [{
+          activity_name: `${destination} architecture walk`,
+          activity_type: 'cultural',
+          description: 'Plan a route around notable streets, public buildings, churches, stations, bridges, or design districts.',
+        }];
+      case 'fine_dining':
+        return [{
+          activity_name: `${destination} notable restaurant reservation`,
+          activity_type: 'dining',
+          description: 'Choose one destination-specific meal worth planning around rather than a generic restaurant search.',
+        }];
+      case 'street_food':
+        return [{
+          activity_name: `${destination} street-food, bakery, or market-stall crawl`,
+          activity_type: 'dining',
+          description: 'Sample small bites from markets, bakeries, food halls, or casual counters known locally.',
+        }];
+      case 'wine_tasting':
+        return [{
+          activity_name: `${destination} regional wine tasting`,
+          activity_type: 'dining',
+          description: 'Find a tasting room, cellar, vineyard trip, or wine bar focused on nearby regional bottles.',
+        }];
+      case 'craft_beer':
+        return [{
+          activity_name: `${destination} brewery, beer hall, or taproom`,
+          activity_type: 'nightlife',
+          description: 'Try local styles at a brewery, taproom, beer hall, or pub with regional pours.',
+        }];
+      case 'nightclubs':
+        return [{
+          activity_name: `${destination} late-night venue or club district`,
+          activity_type: 'nightlife',
+          description: 'Pick a specific neighborhood or venue that fits your music and safety preferences.',
+        }];
+      case 'live_music':
+        return [{
+          activity_name: `${destination} live music room or concert hall`,
+          activity_type: 'nightlife',
+          description: 'Look for jazz rooms, small stages, concert halls, or traditional music performances.',
+        }];
+      case 'local_markets':
+        return [{
+          activity_name: `${destination} food, craft, or flea market`,
+          activity_type: 'shopping',
+          description: 'Use markets for local produce, vintage finds, crafts, spices, textiles, and small gifts.',
+        }];
+      case 'spa_wellness':
+      case 'yoga_retreats':
+        return [{
+          activity_name: `${destination} spa, bathhouse, yoga, or wellness session`,
+          activity_type: 'wellness',
+          description: 'Find a wellness stop that reflects the destination, such as bathhouses, hammams, springs, or small studios.',
+        }];
+      case 'beach_pool':
+        return [{
+          activity_name: `${destination} beach, pool, lake, or waterfront plan`,
+          activity_type: 'beach',
+          description: 'Choose a realistic water stop and check access, towels, lockers, and season before you go.',
+        }];
+      case 'theme_parks':
+        return [{
+          activity_name: `${destination} amusement park, rides, or family entertainment stop`,
+          activity_type: 'family',
+          description: 'Pick a full-day park or smaller entertainment stop that fits the trip pace.',
+        }];
+      case 'zoos_aquariums':
+        return [{
+          activity_name: `${destination} zoo, aquarium, or conservation attraction`,
+          activity_type: 'family',
+          description: 'Look for animal or marine-life attractions with strong welfare and conservation standards.',
+        }];
+      case 'kid_friendly':
+        return [{
+          activity_name: `${destination} hands-on family museum or relaxed kid stop`,
+          activity_type: 'family',
+          description: 'Prioritize interactive museums, parks, short tours, playgrounds, or low-friction indoor options.',
+        }];
+      case 'hiking':
+      case 'cycling':
+      case 'rock_climbing':
+      case 'extreme_sports':
+      case 'safari':
+      case 'backpacking':
+        return [{
+          activity_name: `${destination} guided outdoor or adventure day`,
+          activity_type: 'adventure',
+          description: 'Choose a route or outfitter matched to the weather, terrain, and your actual fitness level.',
+        }];
+      case 'surfing':
+      case 'scuba_diving':
+        return [{
+          activity_name: `${destination} guided water activity`,
+          activity_type: 'water',
+          description: 'Check season, water conditions, equipment rental, and certification requirements before booking.',
+        }];
+      case 'skiing_snowboarding':
+        return [{
+          activity_name: `${destination} ski or snow day`,
+          activity_type: 'snow',
+          description: 'Confirm snow conditions, lift access, rentals, lessons, and transport before planning the day.',
+        }];
+      default:
+        return [];
+    }
+  });
+}
 
 function asSuggestedActivity(activity: SuggestionSeed): ActivitySuggestion {
   return {
@@ -206,9 +201,10 @@ export function dedupeActivitySuggestions(activities: ActivitySuggestion[]): Act
 }
 
 function seedSuggestionsForInterests(destination: string, interests: ActivityInterest[]) {
-  const byInterest = interests.flatMap((interest) => INTEREST_FALLBACKS[interest] ?? []);
+  const byInterest = interestFallbacksForDestination(destination, interests);
   const selectedTypes = activityTypesForInterests(interests);
-  const base = BASE_FALLBACKS.filter((activity) => matchesSelectedTypes(activity.activity_type, selectedTypes));
+  const base = baseFallbacksForDestination(destination)
+    .filter((activity) => matchesSelectedTypes(activity.activity_type, selectedTypes));
   const local = localActivitySuggestionsForDestination(destination)
     .filter((activity) => matchesSelectedTypes(activity.activity_type, selectedTypes));
 
@@ -224,19 +220,11 @@ export function fallbackActivitiesForDestination(
   interests: ActivityInterest[] = [],
 ): ActivitySuggestion[] {
   const selectedTypes = activityTypesForInterests(interests);
-  const base = BASE_FALLBACKS
+  const base = baseFallbacksForDestination(destination)
     .filter((activity) => matchesSelectedTypes(activity.activity_type, selectedTypes))
     .map(asSuggestedActivity);
   const seeds = seedSuggestionsForInterests(destination, interests);
   const activities = dedupeActivitySuggestions([
-    {
-      activity_name: `Explore ${destination} city center`,
-      activity_type: 'cultural',
-      description: 'Walk around and discover local neighborhoods.',
-      source: 'suggested',
-      external_id: null,
-      photo_url: null,
-    },
     ...seeds,
     ...base,
   ]);

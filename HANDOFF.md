@@ -1,6 +1,6 @@
 # DestinationPacker Handoff
 
-Current date: 2026-05-19
+Current date: 2026-06-03
 Repo: `/Users/mike/AppIdeas/DestinationPacker`
 Branch: `main`
 Remote Supabase project: `qugwlnxdlzeymxratwkg`
@@ -9,10 +9,11 @@ Remote Supabase URL: `https://qugwlnxdlzeymxratwkg.supabase.co`
 ## Current State
 
 - Expo SDK 54 mobile app is on a Supabase standalone architecture.
-- Local Supabase is running and the timestamped migration set through `20260519064753_advisor_cleanup.sql` has been applied.
-- A LAN Expo server was started for Expo Go at `exp://192.168.1.187:8082`.
-- Existing localhost Expo server on `8081` was left untouched.
-- Untracked items intentionally left alone: `.claude/` and `packer.pen`.
+- EAS project is linked as `@mikepitts25/destinationpacker` with project ID `469246a4-10c6-4b62-a8c9-02386dd2d7be`.
+- Production/preview EAS profiles point at the remote Supabase project.
+- App Store metadata is tracked in `mobile/store.config.json`, including privacy policy URL `https://colibricodellc.com/privacy-policy`.
+- Premium purchase UI is disabled for v1 until StoreKit/RevenueCat is implemented.
+- Untracked items intentionally left alone before the current App Store readiness work: `.claude/` and `packer.pen`.
 
 ## Recent App Changes
 
@@ -37,6 +38,14 @@ Remote Supabase URL: `https://qugwlnxdlzeymxratwkg.supabase.co`
   - item quantity +/- controls,
   - undo restore after deleting an item.
 - Trip detail now has an `Advisor` tab with foods to try, souvenirs, customs, and practical notes.
+- App Store readiness updates now include:
+  - in-app Terms and Privacy Policy routes,
+  - account deletion flow from Profile,
+  - `delete-account` Supabase Edge Function,
+  - no unused location/notification native permissions,
+  - `ITSAppUsesNonExemptEncryption: false` export-compliance declaration,
+  - EAS store metadata with privacy policy URL,
+  - Expo SDK patch versions aligned with `expo-doctor`.
 
 ## Remote Supabase Work Completed
 
@@ -54,12 +63,13 @@ Edge Functions deployed remotely and active with `verify_jwt: true`:
 - `activities-search`
 - `places-search`
 - `ai-packing`
+- `delete-account`
 
 Supabase advisors after cleanup:
 
-- Security advisors: no lints.
+- Security advisors: `auth_leaked_password_protection` warning remains. Supabase docs say leaked password protection is available on Pro plan and above and can be enabled in Auth password security settings.
 - Performance advisors: only `unused_index` info notices. These are expected on a fresh database and should not be acted on until real query history exists.
-- Supabase plugin re-checked remote migrations and Edge Functions on 2026-05-19; they still match this handoff.
+- Supabase connector re-checked remote migrations on 2026-06-03. Supabase CLI confirmed remote Edge Functions are active, including `delete-account`.
 
 ## Local Migrations
 
@@ -82,10 +92,15 @@ Files now present:
 
 From `mobile/`:
 
-- `npm test` passed: 7 suites, 34 tests.
+- `npm test` passed: 19 suites, 63 tests.
 - `npm run type-check` passed.
-- `npm run lint` passed after adding Expo ESLint config.
-- `npm audit fix` was run without `--force`; remaining audit notices are Expo/Jest transitive advisories where npm suggests breaking downgrades.
+- `npm run lint` passed.
+- `npx expo-doctor` passed: 18/18 checks.
+- `npx eas-cli metadata:lint --profile production` passed.
+- `deno fmt --check`, `deno lint`, and `deno check` passed for `supabase/functions/delete-account/index.ts`.
+- `npx supabase functions deploy delete-account --project-ref qugwlnxdlzeymxratwkg` deployed successfully.
+- `npx eas-cli build --platform ios --profile production --non-interactive --freeze-credentials --no-wait` failed before creating a build because iOS credentials are not set up. Re-run interactively to configure Apple credentials.
+- Remaining `npm audit --omit=dev` notices are Expo transitive advisories where npm suggests a breaking Expo upgrade.
 
 ## Important Remaining Setup
 
@@ -100,17 +115,17 @@ From `mobile/`:
      - `NOMINATIM_URL`
      - `OVERPASS_URL`
 
-2. Update production/TestFlight environment profiles.
-   - Local ignored `mobile/.env` now points at the remote project using the Supabase publishable key.
-   - `mobile/eas.json` now has `development`, `preview`, and `production` profiles pointing at the remote Supabase project.
-   - `mobile/.env.local.example` documents local Supabase values; `mobile/.env.example` documents remote Expo Go values.
-   - `mobile/app.json` no longer has a placeholder EAS project ID; run `npx eas-cli init` before the first EAS build so EAS can add the real UUID.
+2. Configure iOS credentials for EAS Build.
+   - Non-interactive production iOS build now reaches credential setup and fails with: `Credentials are not set up. Run this command again in interactive mode.`
+   - Run from `mobile/`: `npm run credentials:ios`
+   - Then start the TestFlight/App Store build: `npm run build:production:ios`
 
 3. Configure Supabase Auth settings in the dashboard.
    - Confirm email settings.
    - Set redirect URLs for app deep links and any web/dev URLs needed.
+   - Enable leaked password protection if the project is on Supabase Pro or above.
 
-4. Manually test the full Expo Go flow.
+4. Manually test the full TestFlight flow.
    - Signup/login.
    - Create a trip.
    - Pick date range.
@@ -122,11 +137,10 @@ From `mobile/`:
    - Fetch activities.
    - Confirm local food/souvenir suggestions appear.
    - Select activities and verify packing list updates.
+   - Delete account from Profile and confirm the user returns to sign-in.
 
 5. Re-run verification after any new changes.
-   - `npm test`
-   - `npm run type-check`
-   - `npm run lint`
+   - `cd mobile && npm run verify:release`
 
 ## Potential Next Product Work
 
@@ -138,8 +152,9 @@ From `mobile/`:
   - drag/reorder custom items,
   - edit item names/categories,
   - bulk delete custom items.
-- Add a production/TestFlight environment profile so local and remote Supabase URLs are not manually swapped.
-  - Initial `mobile/eas.json` profile is now present; remaining work is creating/linking the EAS project ID.
+- Add RevenueCat or another app-store payment integration and update `profiles.subscription` only from trusted server-side code.
+- Re-enable Premium purchase UI only after StoreKit/RevenueCat purchase, restore, and webhook handling are implemented.
+- Add actual departure reminders after implementing notification permission request and scheduling flow.
 
 ## Known Caveats
 
@@ -148,4 +163,5 @@ From `mobile/`:
 - The remote project was treated as fresh because the connector reported no existing migrations/functions before deployment.
 - Do not assume remote auth/email settings are production-ready until checked in the Supabase dashboard.
 - Supabase plugin can read remote migrations, Edge Functions, project URL, and publishable keys. No callable plugin tool is currently exposed here for Edge Function secrets or Auth dashboard settings.
-- Supabase CLI 2.100.0 and 2.100.1-beta.3 reject newer `sbp_v0_...` access tokens before contacting Supabase, but the Supabase Management API accepts them. Edge Function secrets can be managed directly through `https://api.supabase.com/v1/projects/qugwlnxdlzeymxratwkg/secrets`.
+- Supabase CLI deploy worked for `delete-account`, but there is no `SUPABASE_ACCESS_TOKEN` in this shell for direct Management API auth-setting changes.
+- The EAS build warning `Unknown option "watcher.unstable_workerThreads"` appears to come from upstream tooling; no matching config exists in this repo outside `node_modules`.

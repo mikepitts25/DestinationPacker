@@ -1,10 +1,11 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Text } from 'react-native-paper';
+import { ScrollView, Share, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Button, Text } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import { useTrip } from '@/hooks/useTrips';
 import { tripDestinations } from '@/lib/trips/destinations';
 import {
+  buildTripAdvisorShareText,
   tripAdvisorGuideForDestination,
   type AdvisorItem,
 } from '@/lib/advisor/tripAdvisor';
@@ -14,6 +15,9 @@ const SECTIONS: { key: keyof ReturnType<typeof tripAdvisorGuideForDestination>; 
   { key: 'souvenirs', title: 'Souvenirs', icon: '🎁' },
   { key: 'customs', title: 'Customs', icon: '🤝' },
   { key: 'practical', title: 'Practical Notes', icon: '🧭' },
+  { key: 'booking', title: 'Book Ahead', icon: '📅' },
+  { key: 'buying', title: 'Before You Buy', icon: '🧾' },
+  { key: 'safety', title: 'Safety & Comfort', icon: '🛡️' },
 ];
 
 export default function AdvisorScreen() {
@@ -33,6 +37,13 @@ export default function AdvisorScreen() {
     guide: tripAdvisorGuideForDestination(destination.destination),
   }));
 
+  const handleShareBriefing = () => {
+    Share.share({
+      title: 'DestinationPacker trip briefing',
+      message: buildTripAdvisorShareText(destinationGuides),
+    }).catch(() => {});
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.summary}>
@@ -40,8 +51,17 @@ export default function AdvisorScreen() {
           {destinationGuides.map((guide) => guide.destination).join(' -> ')}
         </Text>
         <Text style={styles.summaryText}>
-          Local foods, gift ideas, customs, and practical notes for this trip.
+          Foods, gifts, customs, booking reminders, buying cautions, and practical notes for this trip.
         </Text>
+        <Button
+          compact
+          mode="outlined"
+          onPress={handleShareBriefing}
+          style={styles.shareButton}
+          textColor={Colors.primaryDark}
+        >
+          Share Briefing
+        </Button>
       </View>
 
       {destinationGuides.map(({ destination, guide }) => (
@@ -98,6 +118,7 @@ const styles = StyleSheet.create({
   },
   destination: { ...Typography.h2, color: Colors.onSurface, marginBottom: 4 },
   summaryText: { ...Typography.body, color: Colors.muted },
+  shareButton: { alignSelf: 'flex-start', marginTop: Spacing.md, borderRadius: 8, borderColor: Colors.border },
   destinationBlock: { marginBottom: Spacing.md },
   destinationBlockTitle: { ...Typography.h2, color: Colors.onSurface, marginBottom: Spacing.md },
   section: { marginBottom: Spacing.lg },

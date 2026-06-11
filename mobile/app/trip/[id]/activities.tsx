@@ -1,10 +1,15 @@
 import { useEffect } from 'react';
 import { View, SectionList, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Text, Chip, Button, ActivityIndicator } from 'react-native-paper';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useActivities, useFetchActivities, useToggleActivity } from '@/hooks/useActivities';
-import { useAuthStore } from '@/stores/authStore';
 import { Colors, Spacing, Typography } from '@/constants/theme';
+import {
+  activityPlanningInsight,
+  buildActivityPlan,
+  groupActivitiesForPlanning,
+  type ActivityPlanBlock,
+} from '@/lib/activities/plan';
 import { formatActivityRating } from '@/lib/activities/rating';
 import type { Activity, ActivityType } from '@/types';
 
@@ -25,12 +30,28 @@ const ACTIVITY_EMOJI: Record<ActivityType, string> = {
   adventure: '🧗',
 };
 
+const ACTIVITY_TYPE_LABEL: Record<ActivityType, string> = {
+  outdoor: 'Outdoors',
+  water: 'Water',
+  cultural: 'Sights & history',
+  nightlife: 'Evening',
+  dining: 'Food & drink',
+  sports: 'Sports',
+  beach: 'Beach',
+  snow: 'Snow',
+  business: 'Business',
+  wellness: 'Wellness',
+  shopping: 'Markets & shops',
+  souvenirs: 'Local buys',
+  family: 'Family',
+  adventure: 'Adventure',
+};
+
 export default function ActivitiesScreen() {
   const { id: tripId } = useLocalSearchParams<{ id: string }>();
   const { data: activities, isLoading } = useActivities(tripId);
   const { mutate: fetchActivities, isPending: isFetching } = useFetchActivities(tripId);
   const { mutate: toggleActivity, isPending: isToggling } = useToggleActivity(tripId);
-  const { isPremium } = useAuthStore();
 
   useEffect(() => {
     if (tripId && (!activities || activities.length === 0)) {
@@ -38,8 +59,10 @@ export default function ActivitiesScreen() {
     }
   }, [activities, fetchActivities, tripId]);
 
-  const selectedCount = activities?.filter((a) => a.selected).length ?? 0;
-  const sections = activitySections(activities ?? []);
+  const activityList = activities ?? [];
+  const selectedCount = activityList.filter((a) => a.selected).length;
+  const planBlocks = buildActivityPlan(activityList);
+  const sections = groupActivitiesForPlanning(activityList);
 
   if (isLoading || isFetching) {
     return (
@@ -62,31 +85,30 @@ export default function ActivitiesScreen() {
 
       <SectionList
         sections={sections}
+        contentInsetAdjustmentBehavior="automatic"
         keyExtractor={(a) => a.id}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
-          <View>
-            <Text style={styles.hint}>
-              Select real attractions and venues to automatically add required gear to your packing list.
-            </Text>
-            {!isPremium && (
-              <TouchableOpacity
-                style={styles.aiTeaser}
-                onPress={() => router.push('/premium')}
-              >
-                <Text style={styles.aiTeaserText}>
-                  ✨ Premium: Create unlimited trips with AI packing support
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <ActivitiesHeader
+            planBlocks={planBlocks}
+            disabled={isToggling}
+            isFetching={isFetching}
+            onRefresh={() => fetchActivities()}
+            onTogglePlanItem={(block) => {
+              toggleActivity({ activityId: block.activityId, selected: !block.selected });
+            }}
+          />
         }
         renderSectionHeader={({ section }) => (
-          sections.length > 1 ? (
-            <View style={styles.destinationHeader}>
-              <Text style={styles.destinationTitle}>{section.title}</Text>
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+              {section.subtitle && (
+                <Text style={styles.sectionSubtitle}>{section.subtitle}</Text>
+              )}
             </View>
-          ) : null
+            <Text style={styles.sectionCount}>{section.data.length}</Text>
+          </View>
         )}
         renderItem={({ item }) => (
           <ActivityCard
@@ -98,8 +120,11 @@ export default function ActivitiesScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>🗺️</Text>
-            <Text style={styles.emptyText}>No activities found for this destination.</Text>
-            <Button onPress={() => fetchActivities()}>Try Again</Button>
+            <Text style={styles.emptyTitle}>No trip ideas yet</Text>
+            <Text style={styles.emptyText}>
+              Refresh to search again for sights, classes, tastings, local buys, and experience ideas for this destination.
+            </Text>
+            <Button mode="contained-tonal" onPress={() => fetchActivities()}>Refresh Ideas</Button>
           </View>
         }
         ListFooterComponent={<View style={{ height: 80 }} />}
@@ -108,15 +133,85 @@ export default function ActivitiesScreen() {
   );
 }
 
-function activitySections(activities: Activity[]) {
-  const grouped = new Map<string, Activity[]>();
+function ActivitiesHeader({
+  planBlocks,
+  disabled,
+  isFetching,
+  onRefresh,
+  onTogglePlanItem,
+}: {
+  planBlocks: ActivityPlanBlock[];
+  disabled: boolean;
+  isFetching: boolean;
+  onRefresh: () => void;
+  onTogglePlanItem: (block: ActivityPlanBlock) => void;
+}) {
+  return (
+    <View style={styles.headerStack}>
+      <View style={styles.listHeader}>
+        <Text style={styles.hint}>
+          Choose the plan items that match this trip; packing updates from the activities you add.
+        </Text>
+        <Button
+          compact
+          mode="outlined"
+          onPress={onRefresh}
+          loading={isFetching}
+          disabled={isFetching}
+          style={styles.refreshButton}
+          textColor={Colors.primaryDark}
+        >
+          Refresh Ideas
+        </Button>
+      </View>
 
-  for (const activity of activities) {
-    const destination = activity.destination?.trim() || 'Activities';
-    grouped.set(destination, [...(grouped.get(destination) ?? []), activity]);
-  }
+      {planBlocks.length > 0 && (
+        <View style={styles.planSection}>
+          <View style={styles.planHeadingRow}>
+            <View>
+              <Text style={styles.planEyebrow}>Suggested Plan</Text>
+              <Text style={styles.planTitle}>Start with a real route</Text>
+            </View>
+            <Text style={styles.planCount}>{planBlocks.length} picks</Text>
+          </View>
 
-  return Array.from(grouped.entries()).map(([title, data]) => ({ title, data }));
+          {planBlocks.map((block) => (
+            <TouchableOpacity
+              key={block.activityId}
+              style={[styles.planItem, block.selected && styles.planItemSelected]}
+              onPress={() => !disabled && onTogglePlanItem(block)}
+              disabled={disabled}
+            >
+              <View style={styles.planTimeColumn}>
+                <Text style={styles.planTime}>{block.timeLabel}</Text>
+                <View style={[styles.planDot, block.selected && styles.planDotSelected]} />
+              </View>
+              <View style={styles.planItemContent}>
+                <View style={styles.planItemHeader}>
+                  <Text style={styles.planItemTitle} numberOfLines={2}>{block.title}</Text>
+                  <Text style={[styles.planStatus, block.selected && styles.planStatusSelected]}>
+                    {block.selected ? 'Added' : 'Add'}
+                  </Text>
+                </View>
+                <Text style={styles.planDestination}>{block.destination}</Text>
+                <Text style={styles.planReason} numberOfLines={3}>{block.reason}</Text>
+                <Text style={styles.planNote} numberOfLines={2}>{block.practicalNote}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {planBlocks.length > 0 && (
+        <View style={styles.buildTripIntro}>
+          <Text style={styles.buildTripTitle}>Build Your Trip</Text>
+          <Text style={styles.buildTripText}>
+            Add or remove anything below to tune the plan and the packing list.
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 }
 
 function ActivityCard({
@@ -128,6 +223,8 @@ function ActivityCard({
 }) {
   const emoji = ACTIVITY_EMOJI[activity.activity_type] ?? '📍';
   const ratingText = formatActivityRating(activity);
+  const sourceText = sourceLabel(activity.source);
+  const insight = activityPlanningInsight(activity);
 
   return (
     <TouchableOpacity
@@ -144,28 +241,53 @@ function ActivityCard({
       )}
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
-          <Text style={styles.activityName} numberOfLines={1}>
+          <Text style={styles.activityName} numberOfLines={2}>
             {activity.activity_name}
           </Text>
-          <Text style={styles.checkmark}>{activity.selected ? '✅' : '⭕'}</Text>
+          <Text style={[styles.addedLabel, activity.selected && styles.addedLabelSelected]}>
+            {activity.selected ? 'Added to trip' : 'Add'}
+          </Text>
         </View>
-        <Chip compact style={styles.typeChip} textStyle={styles.typeChipText}>
-          {emoji} {activity.activity_type}
-        </Chip>
+        <Text style={styles.insightText} numberOfLines={3}>
+          {insight}
+        </Text>
+        <View style={styles.metaRow}>
+          <Chip compact style={styles.typeChip} textStyle={styles.typeChipText}>
+            {emoji} {ACTIVITY_TYPE_LABEL[activity.activity_type]}
+          </Chip>
+          <Chip compact style={styles.sourceChip} textStyle={styles.sourceChipText}>
+            {sourceText}
+          </Chip>
+        </View>
         {ratingText && (
           <Text style={styles.ratingText}>{ratingText}</Text>
         )}
         {activity.distance_from_center_km !== null && (
           <Text style={styles.distanceText}>{activity.distance_from_center_km.toFixed(1)} km from center</Text>
         )}
-        {activity.description && (
-          <Text style={styles.description} numberOfLines={3}>
+        {activity.description && activity.description !== insight && (
+          <Text style={styles.description} numberOfLines={2}>
             {activity.description}
           </Text>
         )}
       </View>
     </TouchableOpacity>
   );
+}
+
+function sourceLabel(source: string) {
+  switch (source) {
+    case 'ai_curated':
+      return 'Curated';
+    case 'openstreetmap':
+      return 'Place';
+    case 'local_guide':
+      return 'Guide';
+    case 'user_added':
+      return 'Custom';
+    default:
+      return 'Guide';
+  }
 }
 
 const styles = StyleSheet.create({
@@ -179,25 +301,106 @@ const styles = StyleSheet.create({
   },
   selectionText: { ...Typography.label, color: Colors.secondary },
   list: { padding: Spacing.md },
-  hint: { ...Typography.caption, color: Colors.muted, marginBottom: Spacing.sm },
-  destinationHeader: {
-    backgroundColor: Colors.background,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xs,
+  headerStack: {
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
   },
-  destinationTitle: { ...Typography.h3, color: Colors.onSurface },
-  aiTeaser: {
-    backgroundColor: '#fff8e1',
+  listHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  hint: { ...Typography.caption, color: Colors.muted, flex: 1 },
+  refreshButton: { borderRadius: 8, borderColor: Colors.border },
+  planSection: {
+    backgroundColor: Colors.surface,
     borderRadius: 8,
-    padding: Spacing.sm,
-    marginBottom: Spacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.premiumGold,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    gap: Spacing.sm,
   },
-  aiTeaserText: { ...Typography.caption, color: '#f57f17' },
+  planHeadingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    alignItems: 'flex-start',
+    marginBottom: Spacing.xs,
+  },
+  planEyebrow: {
+    ...Typography.caption,
+    color: Colors.primaryDark,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  planTitle: { ...Typography.h3, color: Colors.onSurface },
+  planCount: { ...Typography.caption, color: Colors.muted, fontWeight: '700' },
+  planItem: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingTop: Spacing.sm,
+  },
+  planItemSelected: {
+    backgroundColor: '#f0faf2',
+    marginHorizontal: -Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: 8,
+    paddingBottom: Spacing.sm,
+  },
+  planTimeColumn: { width: 74, alignItems: 'flex-start', gap: Spacing.xs },
+  planTime: { ...Typography.caption, color: Colors.primaryDark, fontWeight: '700' },
+  planDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.border,
+  },
+  planDotSelected: { backgroundColor: Colors.secondary },
+  planItemContent: { flex: 1, gap: 3 },
+  planItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  planItemTitle: { ...Typography.body, color: Colors.onSurface, fontWeight: '700', flex: 1 },
+  planStatus: {
+    ...Typography.caption,
+    color: Colors.primaryDark,
+    fontWeight: '700',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 999,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+  },
+  planStatusSelected: {
+    color: Colors.secondary,
+    backgroundColor: '#e6f4ea',
+    borderColor: '#b9dfc4',
+  },
+  planDestination: { ...Typography.caption, color: Colors.muted, fontWeight: '700' },
+  planReason: { ...Typography.caption, color: Colors.onSurface, lineHeight: 18 },
+  planNote: { ...Typography.caption, color: Colors.primaryDark, lineHeight: 18, fontWeight: '600' },
+  buildTripIntro: { gap: 2 },
+  buildTripTitle: { ...Typography.h3, color: Colors.onSurface },
+  buildTripText: { ...Typography.caption, color: Colors.muted },
+  sectionHeader: {
+    backgroundColor: Colors.background,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xs,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  sectionTitle: { ...Typography.h3, color: Colors.onSurface },
+  sectionSubtitle: { ...Typography.caption, color: Colors.muted, marginTop: 2 },
+  sectionCount: { ...Typography.caption, color: Colors.muted, fontWeight: '700' },
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: 12,
+    borderRadius: 8,
     marginBottom: Spacing.sm,
     overflow: 'hidden',
     flexDirection: 'row',
@@ -209,8 +412,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0faf2',
   },
   cardImage: {
-    width: 90,
-    height: 90,
+    width: 88,
+    height: 112,
   },
   cardImagePlaceholder: {
     backgroundColor: Colors.background,
@@ -226,13 +429,33 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   activityName: { ...Typography.body, color: Colors.onSurface, fontWeight: '600', flex: 1 },
-  checkmark: { fontSize: 18, marginLeft: 4 },
-  typeChip: { backgroundColor: Colors.background, marginBottom: 4, alignSelf: 'flex-start' },
+  addedLabel: {
+    ...Typography.caption,
+    color: Colors.primaryDark,
+    fontWeight: '700',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 999,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    overflow: 'hidden',
+  },
+  addedLabelSelected: {
+    color: Colors.secondary,
+    backgroundColor: '#e6f4ea',
+    borderColor: '#b9dfc4',
+  },
+  insightText: { ...Typography.caption, color: Colors.onSurface, lineHeight: 18, marginBottom: Spacing.xs },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 },
+  typeChip: { backgroundColor: Colors.background, alignSelf: 'flex-start' },
   typeChipText: { fontSize: 10, color: Colors.muted, lineHeight: 14 },
+  sourceChip: { backgroundColor: '#edf7f7', alignSelf: 'flex-start' },
+  sourceChipText: { fontSize: 10, color: Colors.primaryDark, lineHeight: 14 },
   ratingText: { ...Typography.caption, color: Colors.primary, marginBottom: 4, fontWeight: '600' },
   distanceText: { ...Typography.caption, color: Colors.muted, marginBottom: 4, fontWeight: '600' },
   description: { ...Typography.caption, color: Colors.muted },
   empty: { alignItems: 'center', paddingVertical: Spacing.xxl },
   emptyEmoji: { fontSize: 48, marginBottom: Spacing.md },
-  emptyText: { ...Typography.body, color: Colors.muted, marginBottom: Spacing.md },
+  emptyTitle: { ...Typography.h3, color: Colors.onSurface, marginBottom: Spacing.sm },
+  emptyText: { ...Typography.body, color: Colors.muted, marginBottom: Spacing.md, textAlign: 'center', lineHeight: 22 },
 });

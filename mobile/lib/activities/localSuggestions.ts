@@ -13,6 +13,7 @@ type LocalSuggestion = {
   name: string;
   activity_type: ActivityType;
   description: string;
+  source?: string;
 };
 
 const LOCAL_SUGGESTIONS: Record<string, LocalSuggestion[]> = {
@@ -269,6 +270,23 @@ const LOCAL_SUGGESTIONS: Record<string, LocalSuggestion[]> = {
       description: 'Colorful hand-woven bags made by Wayuu artisans.',
     },
   ],
+  belgium: [
+    {
+      name: 'Experience: Belgian chocolate workshop',
+      activity_type: 'dining',
+      description: 'Book a hands-on chocolate class where you make pralines or truffles with a local chocolatier.',
+    },
+    {
+      name: 'Buy: Belgian chocolate',
+      activity_type: 'souvenirs',
+      description: 'Pralines, truffles, and bean-to-bar chocolate are classic Belgian gifts; buy from a chocolatier rather than a tourist rack.',
+    },
+    {
+      name: 'Try: Belgian beer tasting',
+      activity_type: 'dining',
+      description: 'Belgium has a deep beer culture, from lambics to Trappist ales; a guided tasting helps decode the styles.',
+    },
+  ],
   mexico: [
     {
       name: 'Try: Oaxacan mezcal',
@@ -295,12 +313,140 @@ const LOCAL_SUGGESTIONS: Record<string, LocalSuggestion[]> = {
   ],
 };
 
+const EXPERIENCE_SUGGESTIONS: Record<string, LocalSuggestion[]> = {
+  italy: [
+    {
+      name: 'Experience: Fresh pasta cooking class',
+      activity_type: 'dining',
+      description: 'Learn to make pasta, sauce, or regional dishes with a local cook; it is more memorable than another restaurant reservation.',
+    },
+    {
+      name: 'Experience: Historic piazza and church walk',
+      activity_type: 'cultural',
+      description: 'Build a route around old churches, civic buildings, fountains, and piazzas instead of only the headline museum.',
+    },
+  ],
+  thailand: [
+    {
+      name: 'Experience: Thai cooking class with market visit',
+      activity_type: 'dining',
+      description: 'Choose a class that starts in a fresh market so you learn ingredients before cooking curries, soups, or stir-fries.',
+    },
+    {
+      name: 'Experience: Temple and old town walk',
+      activity_type: 'cultural',
+      description: 'Plan a respectful route through historic temples, old neighborhoods, and small shrine stops.',
+    },
+  ],
+  france: [
+    {
+      name: 'Experience: Regional wine tasting',
+      activity_type: 'dining',
+      description: 'Book a tasting focused on the region you are visiting, from Bordeaux and Burgundy to Alsace or the Loire.',
+    },
+    {
+      name: 'Experience: Market cooking class',
+      activity_type: 'dining',
+      description: 'A market-to-table class turns local produce, cheese, bread, and wine into a practical food experience.',
+    },
+    {
+      name: 'Experience: Chateaux, cathedrals, or old quarter route',
+      activity_type: 'cultural',
+      description: 'Leave space for historic buildings, castles, cathedrals, and preserved streets outside the biggest museum stops.',
+    },
+  ],
+  japan: [
+    {
+      name: 'Experience: Tea ceremony or wagashi class',
+      activity_type: 'cultural',
+      description: 'A guided tea ceremony or sweets workshop gives context to etiquette, craft, and seasonal flavors.',
+    },
+    {
+      name: 'Experience: Shrine, temple, and garden route',
+      activity_type: 'cultural',
+      description: 'Pair historic temples or shrines with a garden visit for a slower cultural day.',
+    },
+  ],
+  spain: [
+    {
+      name: 'Experience: Tapas or market food tour',
+      activity_type: 'dining',
+      description: 'A guided tapas route helps you try regional dishes without guessing from a crowded menu.',
+    },
+    {
+      name: 'Experience: Moorish, medieval, or old town architecture walk',
+      activity_type: 'cultural',
+      description: 'Spain rewards slow routes through old quarters, cathedrals, fortresses, and tiled civic buildings.',
+    },
+  ],
+  greece: [
+    {
+      name: 'Experience: Greek cooking class',
+      activity_type: 'dining',
+      description: 'Look for a class built around olive oil, herbs, seafood, pastries, or island specialties.',
+    },
+    {
+      name: 'Experience: Ancient ruins and archaeological site visit',
+      activity_type: 'cultural',
+      description: 'Prioritize ancient sites, old fortifications, and small archaeological museums near your route.',
+    },
+  ],
+  portugal: [
+    {
+      name: 'Experience: Port or vinho verde tasting',
+      activity_type: 'dining',
+      description: 'Use a tasting to compare regional wines and learn what is realistic to bring home.',
+    },
+    {
+      name: 'Experience: Azulejo and old town architecture walk',
+      activity_type: 'cultural',
+      description: 'Look for tiled facades, monasteries, viewpoints, and old streets instead of only shopping streets.',
+    },
+  ],
+  mexico: [
+    {
+      name: 'Experience: Mole, tortilla, or mezcal class',
+      activity_type: 'dining',
+      description: 'A hands-on food or mezcal session gives better context than a generic restaurant stop.',
+    },
+    {
+      name: 'Experience: Archaeological ruins or colonial center visit',
+      activity_type: 'cultural',
+      description: 'Plan time for ruins, old churches, plazas, and regional museums when they fit your route.',
+    },
+  ],
+  morocco: [
+    {
+      name: 'Experience: Tagine or pastry cooking class',
+      activity_type: 'dining',
+      description: 'A class focused on spices, bread, tagine, or pastries makes the souk ingredients easier to understand.',
+    },
+    {
+      name: 'Experience: Medina craft walk',
+      activity_type: 'shopping',
+      description: 'Browse workshops for leather, metalwork, rugs, ceramics, or spices with time to compare quality.',
+    },
+  ],
+  peru: [
+    {
+      name: 'Experience: Ceviche or pisco sour class',
+      activity_type: 'dining',
+      description: 'A class or tasting gives you the technique and local context behind Peru staples.',
+    },
+    {
+      name: 'Experience: Archaeological site and colonial architecture route',
+      activity_type: 'cultural',
+      description: 'Balance museums with ruins, old churches, plazas, and carved stone streets where available.',
+    },
+  ],
+};
+
 function suggestionToActivity(suggestion: LocalSuggestion): ActivitySuggestion {
   return {
     activity_name: suggestion.name,
     activity_type: suggestion.activity_type,
     description: suggestion.description,
-    source: 'local_guide',
+    source: suggestion.source ?? 'local_guide',
     external_id: null,
     photo_url: null,
   };
@@ -315,7 +461,12 @@ export function localActivitySuggestionsForDestination(destination: string): Act
   const suggestions: ActivitySuggestion[] = [];
   const seen = new Set<string>();
 
-  for (const [keyword, keywordSuggestions] of Object.entries(LOCAL_SUGGESTIONS)) {
+  const sources = [
+    ...Object.entries(LOCAL_SUGGESTIONS),
+    ...Object.entries(EXPERIENCE_SUGGESTIONS),
+  ];
+
+  for (const [keyword, keywordSuggestions] of sources) {
     if (!normalizedDestination.includes(keyword)) continue;
 
     for (const suggestion of keywordSuggestions) {
@@ -328,14 +479,24 @@ export function localActivitySuggestionsForDestination(destination: string): Act
 
   if (suggestions.length > 0) return suggestions;
 
-  return [{
-    activity_name: 'Browse local markets for souvenirs',
-    activity_type: 'souvenirs',
-    description: `Find local crafts, foods, and small gifts typical of ${destination}.`,
-    source: 'local_guide',
-    external_id: null,
-    photo_url: null,
-  }];
+  return [
+    {
+      activity_name: `Experience: ${destination} food or craft workshop`,
+      activity_type: 'dining',
+      description: `Prioritize a hands-on class, maker studio, tasting, or market-led experience specific to ${destination}.`,
+      source: 'local_guide',
+      external_id: null,
+      photo_url: null,
+    },
+    {
+      activity_name: `Buy: Small local specialty from ${destination}`,
+      activity_type: 'souvenirs',
+      description: `Choose something made, grown, cooked, or sold locally, and confirm import rules before packing food or natural products.`,
+      source: 'local_guide',
+      external_id: null,
+      photo_url: null,
+    },
+  ];
 }
 
 export function appendLocalActivitySuggestions(

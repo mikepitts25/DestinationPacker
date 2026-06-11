@@ -20,4 +20,10 @@ describe('root layout routes', () => {
   it('registers only route names that exist as top-level routes', () => {
     expect(rootStackScreenNames().filter((screenName) => !hasTopLevelRoute(screenName))).toEqual([]);
   });
+
+  it('registers legal policy routes for App Store review links', () => {
+    expect(rootStackScreenNames()).toEqual(expect.arrayContaining(['privacy', 'terms']));
+    expect(hasTopLevelRoute('privacy')).toBe(true);
+    expect(hasTopLevelRoute('terms')).toBe(true);
+  });
 });

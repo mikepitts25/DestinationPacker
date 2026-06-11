@@ -343,6 +343,13 @@ export const usersApi = {
       user,
     } satisfies TokenResponse;
   },
+
+  deleteAccount: async () => {
+    const { error } = await supabase.functions.invoke('delete-account');
+    if (error) throw new ApiError(error.message, 500);
+
+    await supabase.auth.signOut();
+  },
 };
 
 // Trips

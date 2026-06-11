@@ -49,5 +49,43 @@ describe('activity suggestion helpers', () => {
     expect(types.has('shopping') || types.has('souvenirs')).toBe(true);
     expect(types.has('nightlife')).toBe(true);
     expect(activities.map((activity) => activity.activity_name)).toContain('Try: Currywurst');
+    expect(activities.map((activity) => activity.activity_name)).not.toContain('Try local cuisine');
+    expect(activities.map((activity) => activity.activity_name)).not.toContain('Visit local museums');
+  });
+
+  it('uses destination-aware experience suggestions instead of generic filler', () => {
+    const activities = completeActivitySuggestions(
+      [],
+      'Florence, Italy',
+      ['historical_sites', 'street_food'],
+    );
+
+    const names = activities.map((activity) => activity.activity_name);
+    expect(names).toContain('Experience: Fresh pasta cooking class');
+    expect(names).toContain('Experience: Historic piazza and church walk');
+    expect(names).toContain('Florence, Italy castle, ruins, fort, or heritage site');
+    expect(names).not.toContain('Try local cuisine');
+    expect(names).not.toContain('Tour monuments and historic landmarks');
+  });
+
+  it('uses decisive fallback wording instead of placeholder planning categories', () => {
+    const activities = completeActivitySuggestions(
+      [],
+      'Somewhere New',
+      [],
+    );
+
+    const copy = activities
+      .map((activity) => `${activity.activity_name} ${activity.description ?? ''}`.toLowerCase())
+      .join(' ');
+
+    expect(copy).not.toContain('old town, landmark');
+    expect(copy).not.toContain('local market and independent shops');
+    expect(copy).not.toContain('maker, cooking, or craft workshop');
+    expect(copy).not.toContain('park, garden, viewpoint, or waterfront');
+    expect(copy).not.toContain('look for');
+    expect(activities.map((activity) => activity.activity_name)).toContain(
+      'Use Somewhere New market tasting as the food anchor',
+    );
   });
 });

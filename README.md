@@ -14,6 +14,7 @@ Smart travel packing list generator for Expo mobile. The app now runs without a 
 | Weather | Open-Meteo direct from the app |
 | Free packing generation | Local TypeScript rule engine in `mobile/lib/packing/ruleEngine.ts` |
 | Premium AI | `ai-packing` Supabase Edge Function -> Gemini, failure-safe fallback to rules |
+| Account deletion | `delete-account` Supabase Edge Function -> Supabase Auth admin delete |
 
 The old `backend/` FastAPI app remains in the repo as reference during migration, but the mobile app should not require FastAPI, Docker Compose, Valkey, Ollama, or a VPS to run.
 
@@ -50,15 +51,21 @@ Only the Supabase anon key belongs in the mobile app. Do not put service-role ke
 
 `mobile/eas.json` defines `development`, `preview`, and `production` profiles that point at the remote Supabase project. The key in those profiles is a Supabase publishable key intended for client-side use.
 
+`mobile/store.config.json` tracks App Store metadata, including the public privacy policy URL:
+
+```text
+https://colibricodellc.com/privacy-policy
+```
+
 ```bash
 cd mobile
+npm run verify:release
+npm run credentials:ios
 npm run build:preview:ios
 npm run build:preview:android
 npm run build:production:ios
 npm run build:production:android
 ```
-
-Before the first EAS build, run `npx eas-cli init` from `mobile/`. EAS will add a real `expo.extra.eas.projectId` UUID to `mobile/app.json`.
 
 ## Supabase Setup
 
@@ -76,6 +83,7 @@ Deploy Edge Functions:
 supabase functions deploy places-search
 supabase functions deploy activities-search
 supabase functions deploy ai-packing
+supabase functions deploy delete-account
 ```
 
 Configure secrets:
@@ -102,6 +110,8 @@ cd mobile
 npm run type-check
 npm test -- --watchAll=false
 npm run lint
+npx expo-doctor
+npx eas-cli metadata:lint --profile production
 ```
 
 Rule-engine tests cover the deterministic free packing path: essentials, weather rules, activity rules, duration/traveler quantities, and duplicate merging.
@@ -118,3 +128,4 @@ Manual smoke test after Supabase setup:
 8. Fetch activities.
 9. Select an activity and confirm activity-linked packing items update.
 10. View weather; far-future trips should show an unavailable forecast message instead of fake precision.
+11. Delete the account from Profile and confirm the user returns to sign-in.

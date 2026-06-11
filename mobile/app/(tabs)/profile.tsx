@@ -1,8 +1,10 @@
-import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { useState } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { usersApi } from '@/services/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useTrips } from '@/hooks/useTrips';
 import { Colors, Spacing, Radius } from '@/constants/theme';
@@ -31,11 +33,39 @@ function SettingRow({ emoji, label, description, onPress, right }: SettingRowPro
 }
 
 export default function ProfileScreen() {
-  const { user, isPremium, signOut } = useAuthStore();
+  const { user, isPremium, signOut, setUser, setSessionToken } = useAuthStore();
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const { data: trips } = useTrips();
 
   const initials = ((user?.display_name ?? user?.email ?? 'U')[0] ?? 'U').toUpperCase();
   const upcomingCount = trips?.filter(t => new Date(t.end_date) >= new Date()).length ?? 0;
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This permanently deletes your account and all saved trips, packing lists, and activities. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingAccount(true);
+            try {
+              await usersApi.deleteAccount();
+              setSessionToken(null);
+              setUser(null);
+              router.replace('/(auth)/login');
+            } catch (error: any) {
+              Alert.alert('Unable to Delete Account', error.message || 'Please try again.');
+            } finally {
+              setDeletingAccount(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <View style={styles.root}>
@@ -100,8 +130,8 @@ export default function ProfileScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.upgradeGradient}
               >
-                <Text style={styles.upgradeTitle}>Upgrade to Premium ✨</Text>
-                <Text style={styles.upgradeSub}>Ad-free · AI packing lists · Unlimited trips</Text>
+                <Text style={styles.upgradeTitle}>Premium Coming Soon</Text>
+                <Text style={styles.upgradeSub}>AI packing lists · templates · exports</Text>
               </LinearGradient>
             </TouchableOpacity>
           )}
@@ -111,19 +141,12 @@ export default function ProfileScreen() {
           <View style={styles.card}>
             <SettingRow emoji="✏️" label="Edit Profile" onPress={() => {}} />
             <View style={styles.rowDivider} />
-            <SettingRow
-              emoji="🔔"
-              label="Notifications"
-              description="Departure reminders"
-              right={<Switch value={true} onValueChange={() => {}} color={Colors.primary} />}
-            />
-            <View style={styles.rowDivider} />
-            <SettingRow emoji="🛡️" label="Privacy" onPress={() => {}} />
+            <SettingRow emoji="🛡️" label="Privacy" onPress={() => router.push('/privacy')} />
             <View style={styles.rowDivider} />
             <SettingRow
               emoji="⭐"
               label="Subscription"
-              description={isPremium ? 'Premium — manage billing' : 'Upgrade to Premium'}
+              description={isPremium ? 'Premium enabled' : 'Premium features coming soon'}
               onPress={() => router.push('/premium')}
             />
           </View>
@@ -135,12 +158,23 @@ export default function ProfileScreen() {
             <View style={styles.rowDivider} />
             <SettingRow emoji="🌙" label="Dark Mode" right={<Switch value={false} onValueChange={() => {}} color={Colors.primary} />} />
             <View style={styles.rowDivider} />
-            <SettingRow emoji="ℹ️" label="About" onPress={() => {}} />
+            <SettingRow emoji="ℹ️" label="Terms of Service" onPress={() => router.push('/terms')} />
           </View>
 
           {/* Sign out */}
           <TouchableOpacity style={styles.signOut} onPress={signOut} activeOpacity={0.8}>
             <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.deleteAccount, deletingAccount && styles.disabledAction]}
+            onPress={handleDeleteAccount}
+            activeOpacity={0.8}
+            disabled={deletingAccount}
+          >
+            <Text style={styles.deleteAccountText}>
+              {deletingAccount ? 'Deleting Account...' : 'Delete Account'}
+            </Text>
           </TouchableOpacity>
 
           <Text style={styles.version}>DestinationPacker v1.0.0</Text>
@@ -257,5 +291,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   signOutText: { fontSize: 15, fontWeight: '600', color: Colors.error },
+  deleteAccount: {
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteAccountText: { fontSize: 14, fontWeight: '600', color: Colors.error },
+  disabledAction: { opacity: 0.5 },
   version: { fontSize: 12, color: Colors.muted, textAlign: 'center', marginTop: Spacing.lg, marginBottom: Spacing.md },
 });

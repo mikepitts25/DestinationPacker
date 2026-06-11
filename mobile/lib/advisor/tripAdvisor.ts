@@ -10,7 +10,25 @@ export type TripAdvisorGuide = {
   souvenirs: AdvisorItem[];
   customs: AdvisorItem[];
   practical: AdvisorItem[];
+  booking: AdvisorItem[];
+  buying: AdvisorItem[];
+  safety: AdvisorItem[];
 };
+
+export type DestinationAdvisorGuide = {
+  destination: string;
+  guide: TripAdvisorGuide;
+};
+
+const SHARE_SECTIONS: { key: keyof TripAdvisorGuide; title: string }[] = [
+  { key: 'foods', title: 'Foods to try' },
+  { key: 'souvenirs', title: 'Souvenirs' },
+  { key: 'customs', title: 'Customs' },
+  { key: 'practical', title: 'Practical notes' },
+  { key: 'booking', title: 'Book ahead' },
+  { key: 'buying', title: 'Before you buy' },
+  { key: 'safety', title: 'Safety and comfort' },
+];
 
 const CUSTOMS_BY_KEYWORD: Record<string, AdvisorItem[]> = {
   berlin: [
@@ -114,15 +132,210 @@ const PRACTICAL_BY_KEYWORD: Record<string, AdvisorItem[]> = {
   ],
 };
 
+const BOOKING_BY_KEYWORD: Record<string, AdvisorItem[]> = {
+  berlin: [
+    {
+      title: 'Reichstag and museum slots',
+      description: 'Book Reichstag dome visits and major museum entry windows ahead when dates are fixed.',
+    },
+    {
+      title: 'Transit passes',
+      description: 'Compare day passes with single tickets if you plan several U-Bahn, S-Bahn, tram, or bus rides.',
+    },
+  ],
+  germany: [
+    {
+      title: 'Sunday planning',
+      description: 'Plan shopping, pharmacies, and grocery runs around Sunday closures and public holidays.',
+    },
+    {
+      title: 'Train reservations',
+      description: 'Long-distance trains can sell out or run crowded; reserve seats for longer legs when comfort matters.',
+    },
+  ],
+  budapest: [
+    {
+      title: 'Thermal bath tickets',
+      description: 'Reserve popular bath sessions and check towel, locker, and swim-cap rules before arrival.',
+    },
+  ],
+  hungary: [
+    {
+      title: 'Market hall timing',
+      description: 'Visit market halls earlier in the day for better food and souvenir selection.',
+    },
+  ],
+  'sri lanka': [
+    {
+      title: 'Scenic train seats',
+      description: 'Reserve scenic train routes as early as practical, especially hill-country segments.',
+    },
+    {
+      title: 'Driver or transfer days',
+      description: 'Leave buffer time for road transfers, weather delays, and slower mountain or coastal routes.',
+    },
+  ],
+  japan: [
+    {
+      title: 'Restaurant and museum windows',
+      description: 'Book small restaurants, popular museums, and timed attractions ahead when they are central to the trip.',
+    },
+    {
+      title: 'Luggage forwarding timing',
+      description: 'Send bags at least a day ahead when using takkyubin between cities or hotels.',
+    },
+  ],
+  italy: [
+    {
+      title: 'Timed museum entry',
+      description: 'Reserve major museums, cathedral climbs, archaeological sites, or popular cooking classes once dates are fixed.',
+    },
+  ],
+  france: [
+    {
+      title: 'Museum and tasting reservations',
+      description: 'Book major museums, chateaux, wine tastings, and restaurant meals ahead during busy travel periods.',
+    },
+  ],
+  thailand: [
+    {
+      title: 'Cooking classes and ethical tours',
+      description: 'Book smaller cooking classes, guides, or wildlife-related experiences after checking recent reviews and standards.',
+    },
+  ],
+  belgium: [
+    {
+      title: 'Chocolate workshops',
+      description: 'Reserve hands-on chocolate classes in advance, especially around weekends and school holidays.',
+    },
+  ],
+};
+
+const BUYING_BY_KEYWORD: Record<string, AdvisorItem[]> = {
+  germany: [
+    {
+      title: 'Food and alcohol limits',
+      description: 'Before packing beer, sausage, cheese, seeds, or wood items, check your home country import rules.',
+    },
+    {
+      title: 'VAT and receipts',
+      description: 'Keep receipts for higher-value goods and ask retailers about tax-free shopping when eligible.',
+    },
+  ],
+  'sri lanka': [
+    {
+      title: 'Tea, spices, and natural products',
+      description: 'Seal tea and spices well, keep receipts, and check rules before bringing plant, wood, or animal products home.',
+    },
+  ],
+  japan: [
+    {
+      title: 'Knives and liquids',
+      description: 'Kitchen knives must travel in checked luggage, and liquids or sauces need normal airline packing care.',
+    },
+    {
+      title: 'Tax-free purchases',
+      description: 'Keep tax-free purchase receipts and sealed packages as instructed by the shop.',
+    },
+  ],
+  italy: [
+    {
+      title: 'Oil, wine, cheese, and meat',
+      description: 'Pack liquids carefully in checked luggage and verify import rules before buying cheese, cured meats, seeds, or plants.',
+    },
+  ],
+  france: [
+    {
+      title: 'Wine, cheese, and cosmetics',
+      description: 'Confirm liquid limits, checked-bag packing, and food import rules before buying bottles, cheese, or specialty foods.',
+    },
+  ],
+  thailand: [
+    {
+      title: 'Silk, spices, and carvings',
+      description: 'Buy from reputable shops, keep receipts, and verify restrictions before packing wood, shells, plants, or animal products.',
+    },
+  ],
+  belgium: [
+    {
+      title: 'Chocolate packing',
+      description: 'Pack chocolate away from heat and confirm food import rules before bringing large quantities home.',
+    },
+  ],
+  morocco: [
+    {
+      title: 'Rugs, oils, and spices',
+      description: 'Keep receipts, compare quality, and verify home-country rules before packing plants, oils, wood, or animal-derived goods.',
+    },
+  ],
+};
+
+const SAFETY_BY_KEYWORD: Record<string, AdvisorItem[]> = {
+  berlin: [
+    {
+      title: 'Ticket checks are common',
+      description: 'Keep validated transit tickets accessible; inspections can happen without station barriers.',
+    },
+  ],
+  germany: [
+    {
+      title: 'Bike lanes and crossings',
+      description: 'Watch for bike lanes before stepping off curbs and follow crossing signals in cities.',
+    },
+  ],
+  budapest: [
+    {
+      title: 'Bathhouse comfort',
+      description: 'Bring sandals and a small dry bag, and avoid long hot-water sessions if heat affects you.',
+    },
+  ],
+  'sri lanka': [
+    {
+      title: 'Water and sun',
+      description: 'Use safe drinking water, carry sun protection, and pace hill-country or beach days around heat and rain.',
+    },
+  ],
+  japan: [
+    {
+      title: 'Heat and transit fatigue',
+      description: 'Summer heat, station transfers, and crowds can be tiring; carry water and plan breaks between dense stops.',
+    },
+  ],
+  thailand: [
+    {
+      title: 'Heat, scooters, and water',
+      description: 'Prioritize hydration, safe drinking water, and cautious transport choices, especially around scooters or busy roads.',
+    },
+  ],
+  italy: [
+    {
+      title: 'Heat and old streets',
+      description: 'Expect sun, stairs, and uneven stone streets in historic centers; comfortable shoes matter.',
+    },
+  ],
+  france: [
+    {
+      title: 'Crowds and pickpockets',
+      description: 'Use normal city caution around crowded transit, major landmarks, markets, and nightlife areas.',
+    },
+  ],
+};
+
 function destinationKeywords(destination: string): string[] {
   const normalized = destination.trim().toLowerCase();
-  return Object.keys({ ...CUSTOMS_BY_KEYWORD, ...PRACTICAL_BY_KEYWORD }).filter((keyword) => (
+  return Object.keys({
+    ...CUSTOMS_BY_KEYWORD,
+    ...PRACTICAL_BY_KEYWORD,
+    ...BOOKING_BY_KEYWORD,
+    ...BUYING_BY_KEYWORD,
+    ...SAFETY_BY_KEYWORD,
+  }).filter((keyword) => (
     normalized.includes(keyword)
   ));
 }
 
 function stripGuidePrefix(value: string): string {
-  const stripped = value.replace(/^(Try|Buy):\s*/i, '').trim();
+  const stripped = value.replace(/^(Try|Buy|Experience):\s*/i, '').trim();
   return stripped.toLowerCase() === 'browse local markets for souvenirs'
     ? 'Local markets'
     : stripped;
@@ -165,6 +378,23 @@ function foodAndSouvenirItems(destination: string): Pick<TripAdvisorGuide, 'food
   };
 }
 
+function buyingFallback(destination: string, souvenirs: AdvisorItem[]): AdvisorItem[] {
+  const souvenirTitles = souvenirs.slice(0, 2).map((item) => item.title).join(' and ');
+
+  return [
+    {
+      title: 'Check what can come home',
+      description: souvenirTitles
+        ? `Before buying ${souvenirTitles}, confirm your airline packing limits and home-country customs rules.`
+        : `Before buying food, seeds, wood, plants, shells, or animal products in ${destination}, confirm what you can bring home.`,
+    },
+    {
+      title: 'Keep receipts',
+      description: 'Receipts help with tax-free shopping, warranty questions, and customs declarations for higher-value purchases.',
+    },
+  ];
+}
+
 function sectionForKeywords(
   keywords: string[],
   source: Record<string, AdvisorItem[]>,
@@ -201,5 +431,53 @@ export function tripAdvisorGuideForDestination(destination: string): TripAdvisor
         description: 'Carry a small amount of local currency for transit, tips where customary, markets, or cash-only spots.',
       },
     ]),
+    booking: sectionForKeywords(keywords, BOOKING_BY_KEYWORD, [
+      {
+        title: 'Book must-do experiences early',
+        description: `Reserve timed museums, food classes, tastings, popular viewpoints, or guided tours in ${destination} once dates are firm.`,
+      },
+      {
+        title: 'Check closure days',
+        description: 'Confirm opening days, public holidays, seasonal closures, and last-entry times before building the daily plan.',
+      },
+    ]),
+    buying: sectionForKeywords(keywords, BUYING_BY_KEYWORD, buyingFallback(destination, souvenirs)),
+    safety: sectionForKeywords(keywords, SAFETY_BY_KEYWORD, [
+      {
+        title: 'Build in buffer time',
+        description: 'Leave room for transit delays, weather changes, slower meals, and rest breaks instead of stacking every day tightly.',
+      },
+      {
+        title: 'Protect documents and payment options',
+        description: 'Carry backup payment, keep digital copies of key documents, and avoid keeping all cards and cash in one place.',
+      },
+    ]),
   };
+}
+
+export function buildTripAdvisorShareText(destinationGuides: DestinationAdvisorGuide[]) {
+  const destinations = destinationGuides.map((entry) => entry.destination).join(' -> ');
+  const lines = [
+    `DestinationPacker trip briefing${destinations ? ` for ${destinations}` : ''}`,
+    '',
+  ];
+
+  for (const { destination, guide } of destinationGuides) {
+    lines.push(destination);
+    lines.push('-'.repeat(Math.min(destination.length, 48)));
+
+    for (const section of SHARE_SECTIONS) {
+      const items = guide[section.key].slice(0, 3);
+      if (items.length === 0) continue;
+      lines.push(section.title);
+      for (const item of items) {
+        lines.push(`- ${item.title}: ${item.description}`);
+      }
+      lines.push('');
+    }
+  }
+
+  lines.push('Verify opening times, booking windows, and official customs/import rules before departure.');
+
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }

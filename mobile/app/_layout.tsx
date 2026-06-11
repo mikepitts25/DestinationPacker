@@ -109,8 +109,9 @@ function AuthGuard() {
   useEffect(() => {
     if (isLoading) return;
     const inAuthGroup = segments[0] === '(auth)';
+    const inPublicRoute = segments[0] === 'privacy' || segments[0] === 'terms';
     if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/(auth)/login');
+      if (!inPublicRoute) router.replace('/(auth)/login');
     } else if (isAuthenticated && inAuthGroup) {
       router.replace('/(tabs)');
     }
@@ -137,6 +138,14 @@ export default function RootLayout() {
             <Stack.Screen
               name="premium"
               options={{ headerShown: true, title: 'Go Premium', presentation: 'modal' }}
+            />
+            <Stack.Screen
+              name="privacy"
+              options={{ headerShown: true, title: 'Privacy Policy' }}
+            />
+            <Stack.Screen
+              name="terms"
+              options={{ headerShown: true, title: 'Terms of Service' }}
             />
           </Stack>
           <AuthGuard />

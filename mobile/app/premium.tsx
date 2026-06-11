@@ -1,145 +1,96 @@
-import { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Text, Button, Snackbar } from 'react-native-paper';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { usersApi } from '@/services/api';
 import { useAuthStore } from '@/stores/authStore';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 
 const FEATURES = [
-  { icon: '🚫', title: 'Ad-free experience', free: false, premium: true },
-  { icon: '🤖', title: 'AI-powered packing lists', description: 'Gemini-enhanced suggestions', free: false, premium: true },
-  { icon: '✈️', title: 'Saved trips', description: 'Your second trip requires Premium', free: '1 max', premium: 'Unlimited' },
-  { icon: '🗺️', title: 'AI activity recommendations', description: 'Curated for your interests', free: false, premium: true },
-  { icon: '👥', title: 'Trip collaboration', description: 'Share & edit with travel companions', free: false, premium: true },
-  { icon: '📤', title: 'Export packing list', description: 'PDF & share via messaging', free: false, premium: true },
-  { icon: '📋', title: 'Custom templates', description: 'Save reusable packing lists', free: false, premium: true },
-  { icon: '🔔', title: 'Departure reminders', free: true, premium: true },
+  {
+    icon: 'Plan',
+    title: 'Trip readiness dashboard',
+    description: 'See packing progress, activity coverage, weather status, and trip sparks in one place.',
+  },
+  {
+    icon: 'AI',
+    title: 'AI-curated destination ideas',
+    description: 'Concrete sights, food classes, tastings, local buys, and experience ideas instead of generic lists.',
+  },
+  {
+    icon: 'Share',
+    title: 'Shareable packing lists',
+    description: 'Send a clean checklist to a travel partner, notes app, or group chat before departure.',
+  },
+];
+
+const ROADMAP = [
+  {
+    title: 'Smarter packing explanations',
+    description: 'Show exactly which weather, activity, traveler, or trip detail caused each item.',
+  },
+  {
+    title: 'Destination intelligence',
+    description: 'Expand customs, food, souvenirs, import rules, closures, booking reminders, and local etiquette.',
+  },
+  {
+    title: 'Collaboration and templates',
+    description: 'Reusable packing templates, shared trips, and prep reminders for families and groups.',
+  },
 ];
 
 export default function PremiumScreen() {
-  const { setUser, isPremium } = useAuthStore();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const refreshSubscription = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const updatedUser = await usersApi.me();
-      setUser(updatedUser);
-      if (updatedUser.subscription !== 'premium') {
-        setError('Premium purchases are not configured yet. Subscription changes are managed securely through Supabase, not from the mobile client.');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to refresh subscription');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMonthly = () => refreshSubscription();
-  const handleAnnual = () => refreshSubscription();
-  const handleRestore = () => refreshSubscription();
+  const { isPremium } = useAuthStore();
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}>
-          <Text style={styles.heroEmoji}>⭐</Text>
-          <Text style={styles.heroTitle}>DestinationPacker Premium</Text>
+          <Text style={styles.kicker}>DestinationPacker Plus</Text>
+          <Text style={styles.heroTitle}>Built for serious trip prep</Text>
           <Text style={styles.heroSubtitle}>
-            Create unlimited trips with Premium.
+            The app is moving from a packing checklist into a full pre-trip assistant:
+            smarter suggestions, clearer decisions, and planning tools worth sharing.
           </Text>
         </View>
 
-        {/* Feature comparison */}
-        <View style={styles.comparison}>
-          <View style={styles.comparisonHeader}>
-            <View style={styles.comparisonCol} />
-            <View style={[styles.comparisonCol, styles.comparisonColCenter]}>
-              <Text style={styles.colHeaderFree}>Free</Text>
+        <View style={styles.notice}>
+          <Text style={styles.noticeTitle}>No purchase required in this version</Text>
+          <Text style={styles.noticeText}>
+            You can create trips, generate lists, explore activities, and share packing
+            plans without upgrading. Purchase controls will appear only after App Store
+            payments are fully configured.
+          </Text>
+        </View>
+
+        <Text style={styles.sectionTitle}>Available now</Text>
+        {FEATURES.map((feature) => (
+          <View key={feature.title} style={styles.featureRow}>
+            <View style={styles.featureIcon}>
+              <Text style={styles.featureIconText}>{feature.icon}</Text>
             </View>
-            <View style={[styles.comparisonCol, styles.comparisonColPremium]}>
-              <Text style={styles.colHeaderPremium}>Premium</Text>
+            <View style={styles.featureBody}>
+              <Text style={styles.featureTitle}>{feature.title}</Text>
+              <Text style={styles.featureDescription}>{feature.description}</Text>
             </View>
           </View>
+        ))}
 
-          {FEATURES.map((feature, i) => (
-            <View key={i} style={[styles.featureRow, i % 2 === 0 && styles.featureRowAlt]}>
-              <View style={styles.comparisonCol}>
-                <Text style={styles.featureIcon}>{feature.icon}</Text>
-                <View>
-                  <Text style={styles.featureName}>{feature.title}</Text>
-                  {feature.description && <Text style={styles.featureDesc}>{feature.description}</Text>}
-                </View>
-              </View>
-              <View style={[styles.comparisonCol, styles.comparisonColCenter]}>
-                <Text style={styles.featureVal}>
-                  {feature.free === false ? '✗' : feature.free === true ? '✓' : feature.free}
-                </Text>
-              </View>
-              <View style={[styles.comparisonCol, styles.comparisonColPremium]}>
-                <Text style={[styles.featureVal, styles.premiumCheck]}>
-                  {feature.premium === true ? '✓' : feature.premium}
-                </Text>
-              </View>
+        <Text style={[styles.sectionTitle, styles.roadmapTitle]}>Next premium-grade upgrades</Text>
+        {ROADMAP.map((item) => (
+          <View key={item.title} style={styles.roadmapRow}>
+            <Text style={styles.roadmapBullet}>✓</Text>
+            <View style={styles.featureBody}>
+              <Text style={styles.featureTitle}>{item.title}</Text>
+              <Text style={styles.featureDescription}>{item.description}</Text>
             </View>
-          ))}
-        </View>
-
-        {/* Pricing cards */}
-        <View style={styles.pricingSection}>
-          <TouchableOpacity style={[styles.pricingCard, styles.pricingCardAnnual]} onPress={handleAnnual}>
-            <View style={styles.saveBadge}>
-              <Text style={styles.saveBadgeText}>SAVE 37%</Text>
-            </View>
-            <Text style={styles.pricingTitle}>Annual</Text>
-            <Text style={styles.pricingPrice}>$29.99/year</Text>
-            <Text style={styles.pricingPer}>= $2.50/month</Text>
-            <Text style={styles.trialBadge}>7-day free trial</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.pricingCard} onPress={handleMonthly}>
-            <Text style={styles.pricingTitle}>Monthly</Text>
-            <Text style={styles.pricingPrice}>$3.99/month</Text>
-            <Text style={styles.pricingPer}>Cancel anytime</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Button
-          mode="contained"
-          onPress={handleAnnual}
-          style={styles.ctaButton}
-          contentStyle={styles.ctaButtonContent}
-          loading={loading}
-          disabled={loading || isPremium}
-        >
-          {isPremium ? 'You have Premium' : 'Start Free Trial'}
-        </Button>
-
-        <Text style={styles.legalText}>
-          Cancel anytime. Subscriptions renew automatically. Manage in your App Store / Google Play account settings.
-        </Text>
-
-        <Button mode="text" onPress={handleRestore} textColor={Colors.muted}>
-          Restore Purchases
-        </Button>
+          </View>
+        ))}
 
         {isPremium && (
-          <View style={styles.alreadyPremium}>
-            <Text style={styles.alreadyPremiumText}>✅ You have Premium!</Text>
+          <View style={styles.status}>
+            <Text style={styles.statusText}>Your account is marked Premium.</Text>
           </View>
         )}
       </ScrollView>
-
-      <Snackbar
-        visible={!!error}
-        onDismiss={() => setError('')}
-        duration={4000}
-      >
-        {error}
-      </Snackbar>
     </SafeAreaView>
   );
 }
@@ -148,64 +99,58 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
   hero: { alignItems: 'center', marginBottom: Spacing.xl },
-  heroEmoji: { fontSize: 56, marginBottom: Spacing.sm },
-  heroTitle: { ...Typography.h1, color: Colors.onSurface, marginBottom: 4 },
-  heroSubtitle: { ...Typography.body, color: Colors.muted },
-  comparison: {
+  kicker: { ...Typography.label, color: Colors.primary, fontWeight: '700', marginBottom: Spacing.sm },
+  heroTitle: { ...Typography.h1, color: Colors.onSurface, marginBottom: Spacing.sm, textAlign: 'center' },
+  heroSubtitle: { ...Typography.body, color: Colors.muted, textAlign: 'center', lineHeight: 22 },
+  notice: {
     backgroundColor: Colors.surface,
     borderRadius: 14,
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
     marginBottom: Spacing.xl,
   },
-  comparisonHeader: { flexDirection: 'row', backgroundColor: Colors.background, paddingVertical: Spacing.sm },
-  comparisonCol: { flex: 2, flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, gap: 6 },
-  comparisonColCenter: { flex: 1, justifyContent: 'center' },
-  comparisonColPremium: { flex: 1, justifyContent: 'center', backgroundColor: '#e8f0fe' },
-  colHeaderFree: { ...Typography.label, color: Colors.muted, textAlign: 'center' },
-  colHeaderPremium: { ...Typography.label, color: Colors.primary, fontWeight: '700', textAlign: 'center' },
-  featureRow: { flexDirection: 'row', paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  featureRowAlt: { backgroundColor: Colors.background },
-  featureIcon: { fontSize: 18 },
-  featureName: { ...Typography.label, color: Colors.onSurface },
-  featureDesc: { ...Typography.caption, color: Colors.muted },
-  featureVal: { ...Typography.body, color: Colors.error, textAlign: 'center', fontWeight: '700' },
-  premiumCheck: { color: Colors.secondary },
-  pricingSection: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.lg },
-  pricingCard: {
-    flex: 1,
+  noticeTitle: { ...Typography.h3, color: Colors.onSurface, marginBottom: Spacing.sm },
+  noticeText: { ...Typography.body, color: Colors.muted, lineHeight: 22 },
+  sectionTitle: { ...Typography.h3, color: Colors.primary, marginBottom: Spacing.md },
+  roadmapTitle: { marginTop: Spacing.lg },
+  featureRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
     backgroundColor: Colors.surface,
     borderRadius: 14,
     padding: Spacing.md,
-    alignItems: 'center',
-    borderWidth: 2,
+    marginBottom: Spacing.sm,
+  },
+  roadmapRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    backgroundColor: '#edf7f7',
+    borderRadius: 8,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
     borderColor: Colors.border,
   },
-  pricingCardAnnual: {
-    borderColor: Colors.primary,
-    position: 'relative',
+  roadmapBullet: { ...Typography.body, color: Colors.primaryDark, fontWeight: '800', marginTop: 1 },
+  featureIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: 'rgba(10,147,150,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  saveBadge: {
-    position: 'absolute',
-    top: -10,
-    backgroundColor: Colors.primary,
-    borderRadius: 20,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-  },
-  saveBadgeText: { ...Typography.caption, color: '#fff', fontWeight: '700' },
-  pricingTitle: { ...Typography.h3, color: Colors.onSurface, marginTop: Spacing.sm },
-  pricingPrice: { ...Typography.h2, color: Colors.primary, marginTop: 4 },
-  pricingPer: { ...Typography.caption, color: Colors.muted },
-  trialBadge: { ...Typography.label, color: Colors.secondary, marginTop: 4 },
-  ctaButton: { borderRadius: 12, marginBottom: Spacing.md },
-  ctaButtonContent: { paddingVertical: Spacing.sm },
-  legalText: { ...Typography.caption, color: Colors.muted, textAlign: 'center', marginBottom: Spacing.md },
-  alreadyPremium: {
+  featureIconText: { ...Typography.label, color: Colors.primary, fontWeight: '800' },
+  featureBody: { flex: 1 },
+  featureTitle: { ...Typography.label, color: Colors.onSurface, fontWeight: '700', marginBottom: 2 },
+  featureDescription: { ...Typography.caption, color: Colors.muted, lineHeight: 18 },
+  status: {
     backgroundColor: '#e6f4ea',
     borderRadius: 12,
     padding: Spacing.md,
     alignItems: 'center',
     marginTop: Spacing.md,
   },
-  alreadyPremiumText: { ...Typography.body, color: Colors.secondary, fontWeight: '700' },
+  statusText: { ...Typography.body, color: Colors.secondary, fontWeight: '700' },
 });

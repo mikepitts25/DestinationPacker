@@ -1,12 +1,12 @@
 import { View, FlatList, StyleSheet, TouchableOpacity, Alert, StatusBar } from 'react-native';
-import { Text, FAB, ActivityIndicator } from 'react-native-paper';
+import { Text, FAB, ActivityIndicator, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useTrips, useDeleteTrip } from '@/hooks/useTrips';
 import { useAuthStore } from '@/stores/authStore';
 import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { FREE_TRIP_LIMIT } from '@/constants/config';
-import { formatTripDurationBadge, formatTripRoute } from '@/lib/trips/tripDisplay';
+import { formatTripDurationBadge, formatTripRoute, formatTripTimingBadge } from '@/lib/trips/tripDisplay';
 import type { Trip } from '@/types';
 
 export default function HomeScreen() {
@@ -74,7 +74,7 @@ export default function HomeScreen() {
               style={styles.premiumGradient}
             >
               <Text style={styles.premiumBannerText}>
-                ✨ Create unlimited trips with Premium
+                Premium features are coming soon
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -93,12 +93,7 @@ export default function HomeScreen() {
           renderItem={({ item }) => (
             <TripCard trip={item} onDelete={() => handleDeleteTrip(item)} />
           )}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>🌍</Text>
-              <Text style={styles.emptyText}>Tap + to plan your first adventure!</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyTrips onStart={handleAddTrip} />}
           ListFooterComponent={
             pastTrips.length > 0 ? (
               <>
@@ -132,6 +127,7 @@ const STAY_EMOJI: Record<string, string> = {
 function TripCard({ trip, past, onDelete }: { trip: Trip; past?: boolean; onDelete: () => void }) {
   const startStr = new Date(trip.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const endStr = new Date(trip.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const timing = formatTripTimingBadge(trip);
 
   return (
     <TouchableOpacity
@@ -142,6 +138,9 @@ function TripCard({ trip, past, onDelete }: { trip: Trip; past?: boolean; onDele
     >
       <View style={styles.cardTop}>
         <View style={{ flex: 1 }}>
+          <Text style={[styles.timingBadge, timing === 'Traveling now' && styles.timingBadgeActive]}>
+            {timing}
+          </Text>
           <Text style={styles.destination}>{formatTripRoute(trip)}</Text>
           <Text style={styles.dates}>{startStr} — {endStr}</Text>
         </View>
@@ -167,6 +166,27 @@ function TripCard({ trip, past, onDelete }: { trip: Trip; past?: boolean; onDele
         )}
       </View>
     </TouchableOpacity>
+  );
+}
+
+function EmptyTrips({ onStart }: { onStart: () => void }) {
+  return (
+    <View style={styles.empty}>
+      <Text style={styles.emptyEmoji}>🌍</Text>
+      <Text style={styles.emptyTitle}>Plan smarter before you pack</Text>
+      <Text style={styles.emptyText}>
+        Create a trip and DestinationPacker will build a readiness dashboard, packing list,
+        local activity ideas, weather notes, and a destination briefing.
+      </Text>
+      <View style={styles.emptySteps}>
+        <Text style={styles.emptyStep}>1. Add your destination and dates</Text>
+        <Text style={styles.emptyStep}>2. Pick travel style and interests</Text>
+        <Text style={styles.emptyStep}>3. Get packing, activities, weather, and prep reminders</Text>
+      </View>
+      <Button mode="contained" onPress={onStart} style={styles.emptyButton}>
+        Start a Trip
+      </Button>
+    </View>
   );
 }
 
@@ -206,6 +226,22 @@ const styles = StyleSheet.create({
   },
   pastCard: { opacity: 0.55 },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: Spacing.sm },
+  timingBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#edf7f7',
+    borderRadius: Radius.full,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    color: Colors.primaryDark,
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 6,
+    overflow: 'hidden',
+  },
+  timingBadgeActive: {
+    backgroundColor: '#e6f4ea',
+    color: Colors.secondary,
+  },
   destination: { fontSize: 17, fontWeight: '700', color: Colors.onSurface },
   dates: { fontSize: 12, color: Colors.muted, marginTop: 2 },
   nightsBadge: {
@@ -229,9 +265,29 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   tagText: { fontSize: 12, color: Colors.onSurface, textAlignVertical: 'center' },
-  empty: { alignItems: 'center', paddingVertical: Spacing.xxl },
-  emptyEmoji: { fontSize: 56, marginBottom: Spacing.md },
-  emptyText: { ...Typography.body, color: Colors.muted },
+  empty: {
+    alignItems: 'center',
+    paddingVertical: Spacing.xxl,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  emptyEmoji: { fontSize: 48, marginBottom: Spacing.md },
+  emptyTitle: { ...Typography.h2, color: Colors.onSurface, textAlign: 'center', marginBottom: Spacing.sm },
+  emptyText: { ...Typography.body, color: Colors.muted, textAlign: 'center', lineHeight: 22 },
+  emptySteps: {
+    alignSelf: 'stretch',
+    backgroundColor: '#edf7f7',
+    borderRadius: 8,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: 6,
+  },
+  emptyStep: { ...Typography.label, color: Colors.primaryDark },
+  emptyButton: { borderRadius: 8 },
   fab: {
     position: 'absolute',
     bottom: 90,

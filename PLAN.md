@@ -27,6 +27,8 @@ The legacy `backend/` FastAPI app can remain as reference during migration, but 
 - `supabase/functions/places-search` proxies and caches Nominatim.
 - `supabase/functions/activities-search` proxies and caches Overpass and returns fallbacks on provider failure.
 - `supabase/functions/ai-packing` calls Gemini with strict JSON parsing and graceful failure.
+- `supabase/functions/delete-account` deletes the authenticated user through the Supabase Auth admin API so account deletion does not expose service-role credentials to the app.
+- `mobile/store.config.json` tracks EAS/App Store metadata, including the public privacy policy URL.
 - `scripts/setup-backend.sh` was removed because the mobile app no longer needs the local backend bootstrap path.
 
 ## Security Notes
@@ -35,6 +37,7 @@ The legacy `backend/` FastAPI app can remain as reference during migration, but 
 - `api_cache` is RLS-enabled with no anonymous client policies; Edge Functions use service-role credentials for cache reads/writes.
 - User data policies restrict trips, packing items, activities, and shares to owning users.
 - Profile subscription changes are blocked for normal authenticated users by a database trigger. Premium status must be changed by trusted server-side code or a payment integration using service-role credentials.
+- Account deletion is routed through an authenticated Edge Function; related rows cascade from `auth.users` foreign keys.
 
 ## Remaining Setup
 
@@ -57,6 +60,7 @@ supabase secrets set OVERPASS_USER_AGENT="DestinationPacker/1.0 (you@example.com
 supabase functions deploy places-search
 supabase functions deploy activities-search
 supabase functions deploy ai-packing
+supabase functions deploy delete-account
 ```
 
 6. Put public mobile env vars in `mobile/.env`:

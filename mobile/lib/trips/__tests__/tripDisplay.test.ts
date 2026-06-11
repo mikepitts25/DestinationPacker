@@ -1,4 +1,4 @@
-import { formatTripDurationBadge, formatTripRoute } from '../tripDisplay';
+import { formatTripDurationBadge, formatTripRoute, formatTripTimingBadge } from '../tripDisplay';
 import type { Trip } from '@/types';
 
 function trip(overrides: Partial<Trip>): Trip {
@@ -58,5 +58,15 @@ describe('trip display helpers', () => {
   it('spells out nights and day labels for trip cards', () => {
     expect(formatTripDurationBadge(7)).toBe('6 Nights');
     expect(formatTripDurationBadge(1)).toBe('1 Day');
+  });
+
+  it('formats timing badges for home trip cards', () => {
+    const now = new Date('2026-06-03T12:00:00Z');
+
+    expect(formatTripTimingBadge(trip({ start_date: '2026-06-03', end_date: '2026-06-07' }), now)).toBe('Traveling now');
+    expect(formatTripTimingBadge(trip({ start_date: '2026-06-04', end_date: '2026-06-07' }), now)).toBe('Tomorrow');
+    expect(formatTripTimingBadge(trip({ start_date: '2026-06-10', end_date: '2026-06-12' }), now)).toBe('In 7 days');
+    expect(formatTripTimingBadge(trip({ start_date: '2026-07-01', end_date: '2026-07-07' }), now)).toBe('Starts Jul 1');
+    expect(formatTripTimingBadge(trip({ start_date: '2026-05-01', end_date: '2026-05-07' }), now)).toBe('Completed');
   });
 });

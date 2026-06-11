@@ -33,7 +33,10 @@ export default function WeatherScreen() {
     return (
       <View style={styles.centered}>
         <Text style={styles.bigEmoji}>🌍</Text>
-        <Text style={styles.noDataText}>No coordinates found for this trip.</Text>
+        <Text style={styles.noDataTitle}>Weather needs a matched destination</Text>
+        <Text style={styles.noDataText}>
+          Recreate or edit the trip using a destination from search so the app can attach coordinates and pull a forecast.
+        </Text>
       </View>
     );
   }
@@ -42,7 +45,8 @@ export default function WeatherScreen() {
     return (
       <View style={styles.centered}>
         <Text style={styles.bigEmoji}>⚠️</Text>
-        <Text style={styles.noDataText}>Weather data unavailable.</Text>
+        <Text style={styles.noDataTitle}>Weather data unavailable</Text>
+        <Text style={styles.noDataText}>Try again later or use the packing list without forecast-specific extras.</Text>
       </View>
     );
   }
@@ -181,7 +185,8 @@ function formatUpdatedAt(value: string): string {
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.lg, backgroundColor: Colors.background },
   bigEmoji: { fontSize: 48, marginBottom: Spacing.md },
-  noDataText: { fontSize: 15, color: Colors.muted, textAlign: 'center' },
+  noDataTitle: { fontSize: 18, fontWeight: '700', color: Colors.onSurface, textAlign: 'center', marginBottom: Spacing.sm },
+  noDataText: { fontSize: 15, color: Colors.muted, textAlign: 'center', lineHeight: 21 },
   loadingText: { fontSize: 14, color: Colors.muted, marginTop: Spacing.md },
   list: { padding: Spacing.md, backgroundColor: Colors.background },
   forecastBlock: { marginBottom: Spacing.xl },
