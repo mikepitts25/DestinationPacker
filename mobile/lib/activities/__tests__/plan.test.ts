@@ -146,6 +146,34 @@ describe('activity planning helpers', () => {
     expect(byTitle.get('Easy Fillers')).toEqual(['easy']);
   });
 
+  it('limits each planning group to the top five activities by signal', () => {
+    const groups = groupActivitiesForPlanning([
+      activity({
+        id: 'low',
+        activity_name: 'Low signal cafe',
+        activity_type: 'dining',
+        rating: 3.9,
+        review_count: 12,
+      }),
+      ...Array.from({ length: 5 }, (_, index) => activity({
+        id: `rated-${index}`,
+        activity_name: `Rated restaurant ${index}`,
+        activity_type: 'dining',
+        rating: 4.9 - index * 0.1,
+        review_count: 5000 - index * 500,
+        rating_source: 'Google',
+      })),
+    ]);
+
+    expect(groups.find((group) => group.title === 'Local Food & Drink')?.data.map((item) => item.id)).toEqual([
+      'rated-0',
+      'rated-1',
+      'rated-2',
+      'rated-3',
+      'rated-4',
+    ]);
+  });
+
   it('writes concrete planning insights from available activity context', () => {
     expect(activityPlanningInsight(activity({
       id: 'rated',

@@ -14,6 +14,7 @@ const contactEmail = Deno.env.get("OSM_CONTACT_EMAIL") ??
   "support@destinationpacker.app";
 const userAgent = Deno.env.get("OVERPASS_USER_AGENT") ??
   `DestinationPacker/1.0 (${contactEmail})`;
+const googlePlacesApiKey = Deno.env.get("GOOGLE_PLACES_API_KEY") ?? "";
 const admin = createClient(supabaseUrl, serviceRoleKey);
 
 type OverpassElement = {
@@ -36,6 +37,17 @@ type ActivitySuggestion = {
   review_count: number | null;
   rating_source: string | null;
   distance_from_center_km: number | null;
+};
+
+type GooglePlace = {
+  id?: unknown;
+  displayName?: { text?: unknown };
+  formattedAddress?: unknown;
+  primaryType?: unknown;
+  rating?: unknown;
+  userRatingCount?: unknown;
+  googleMapsUri?: unknown;
+  location?: { latitude?: unknown; longitude?: unknown };
 };
 
 const interestActivityTypes: Record<string, string[]> = {
@@ -204,10 +216,10 @@ function activityMatchesInterests(activityType: string, interests: string[]) {
 function fallbackActivities(destination: string, interests: string[] = []): ActivitySuggestion[] {
   const activities: ActivitySuggestion[] = [
     {
-      activity_name: `${destination} old town, landmark, or historic building route`,
+      activity_name: `Build a ${destination} history walk around the old center`,
       activity_type: "cultural",
       description:
-        "Build a sightseeing route around older buildings, monuments, churches, castles, ruins, or preserved streets.",
+        "Use the oldest streets, civic buildings, preserved corners, and landmark blocks as a focused cultural route.",
       source: "suggested",
       external_id: null,
       photo_url: null,
@@ -230,10 +242,10 @@ function fallbackActivities(destination: string, interests: string[] = []): Acti
       distance_from_center_km: null,
     },
     {
-      activity_name: `${destination} cooking class, tasting, or food market walk`,
+      activity_name: `Book one hands-on ${destination} food or craft session`,
       activity_type: "dining",
       description:
-        "Look for a hands-on class or tasting tied to local ingredients, drinks, chocolate, spices, or regional dishes.",
+        "Choose a class tied to regional food, drink, textiles, ceramics, chocolate, spices, or another craft with local roots.",
       source: "suggested",
       external_id: null,
       photo_url: null,
@@ -243,10 +255,10 @@ function fallbackActivities(destination: string, interests: string[] = []): Acti
       distance_from_center_km: null,
     },
     {
-      activity_name: `${destination} local market and independent shops`,
+      activity_name: `Browse ${destination} markets for useful local finds`,
       activity_type: "shopping",
       description:
-        "Browse markets and small shops for practical gifts, food souvenirs, crafts, and regional products.",
+        "Use markets and small shops for practical gifts, food souvenirs, crafts, and products that are actually regional.",
       source: "suggested",
       external_id: null,
       photo_url: null,
@@ -256,10 +268,10 @@ function fallbackActivities(destination: string, interests: string[] = []): Acti
       distance_from_center_km: null,
     },
     {
-      activity_name: `${destination} park, garden, viewpoint, or waterfront break`,
+      activity_name: `Add a low-friction ${destination} viewpoint or waterfront reset`,
       activity_type: "outdoor",
       description:
-        "Add a lower-key outdoor stop between heavier museum, meal, and sightseeing plans.",
+        "Keep one outdoor reset between heavier museum, meal, and sightseeing plans so the day has breathing room.",
       source: "suggested",
       external_id: null,
       photo_url: null,
@@ -269,7 +281,7 @@ function fallbackActivities(destination: string, interests: string[] = []): Acti
       distance_from_center_km: null,
     },
     {
-      activity_name: `${destination} live music, wine bar, or evening venue`,
+      activity_name: `Pick one ${destination} evening venue with a real local angle`,
       activity_type: "nightlife",
       description:
         "Choose a specific evening plan that reflects the destination instead of a generic night out.",
@@ -322,6 +334,7 @@ Nearby map results you may include if they are worth visiting: ${JSON.stringify(
 The list must feel concrete and useful, not generic. Include a balanced mix of:
 - Named museums, castles, old buildings, viewpoints, ruins, historic districts, landmarks, or cultural places.
 - Hands-on local experiences such as cooking classes, chocolate workshops, wine tastings, tea ceremonies, craft studios, market food tours, or similar experiences when they fit ${destination}.
+- Named restaurants, cafes, bars, breweries, or tasting rooms for food and drink when they fit the request. Prefer places that are publicly well-reviewed, but do not invent ratings, review counts, awards, addresses, hours, or booking claims.
 - Local foods, drinks, markets, independent shops, and destination-specific things to buy. For buyable items, prefix activity_name with "Buy: ".
 - Outdoor, family, nightlife, wellness, beach, or adventure suggestions only when they fit the destination or requested interests.
 
@@ -331,6 +344,7 @@ Rules:
 - Keep old sightseeing attractions in the mix, but make them specific.
 - Descriptions should explain why this belongs in ${destination}, not how travel works in general.
 - Do not invent street addresses, phone numbers, prices, hours, or booking claims.
+- If you cannot name a credible food or drink venue, omit that venue instead of returning generic food advice.
 
 Return a JSON array only. Each object must be:
 {
@@ -408,16 +422,128 @@ async function generateAiActivities(
   }
 }
 
+function shouldSearchDining(interests: string[]) {
+  return interests.length === 0 || interests.some((interest) =>
+    ["fine_dining", "street_food", "wine_tasting", "craft_beer"].includes(interest)
+  );
+}
+
+function shouldSearchNightlife(interests: string[]) {
+  return interests.length === 0 || interests.some((interest) =>
+    ["craft_beer", "nightclubs", "live_music"].includes(interest)
+  );
+}
+
+async function searchGooglePlacesByType(
+  destination: string,
+  lat: number,
+  lon: number,
+  includedType: "restaurant" | "bar",
+): Promise<ActivitySuggestion[]> {
+  if (!googlePlacesApiKey) return [];
+
+  const textQuery = includedType === "bar"
+    ? `highly rated bars in ${destination}`
+    : `highly rated restaurants in ${destination}`;
+
+  try {
+    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": googlePlacesApiKey,
+        "X-Goog-FieldMask":
+          "places.id,places.displayName,places.formattedAddress,places.primaryType,places.rating,places.userRatingCount,places.googleMapsUri,places.location",
+      },
+      body: JSON.stringify({
+        textQuery,
+        includedType,
+        strictTypeFiltering: true,
+        minRating: 4.5,
+        pageSize: 5,
+        rankPreference: "RELEVANCE",
+        locationBias: {
+          circle: {
+            center: { latitude: lat, longitude: lon },
+            radius: 5000,
+          },
+        },
+      }),
+    });
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const places = Array.isArray(data?.places) ? data.places as GooglePlace[] : [];
+
+    return places.flatMap((place): ActivitySuggestion[] => {
+      const name = typeof place.displayName?.text === "string" ? place.displayName.text.trim() : "";
+      const rating = Number(place.rating);
+      const reviewCount = Number(place.userRatingCount);
+      const latitude = Number(place.location?.latitude);
+      const longitude = Number(place.location?.longitude);
+      if (!name || !Number.isFinite(rating) || rating < 4.5) return [];
+
+      const distance = Number.isFinite(latitude) && Number.isFinite(longitude)
+        ? Math.round(distanceKm(lat, lon, latitude, longitude) * 10) / 10
+        : null;
+      const reviewText = Number.isFinite(reviewCount) && reviewCount > 0
+        ? `${Math.round(reviewCount).toLocaleString("en-US")} Google reviews`
+        : "Google review signal";
+
+      return [{
+        activity_name: name,
+        activity_type: includedType === "bar" ? "nightlife" : "dining",
+        description:
+          `${name} is a highly rated ${includedType} near ${destination} with ${rating.toFixed(1)} stars from ${reviewText}.`,
+        source: "google_places",
+        external_id: typeof place.id === "string" ? `google:${place.id}` : null,
+        photo_url: null,
+        rating,
+        review_count: Number.isFinite(reviewCount) && reviewCount > 0 ? Math.round(reviewCount) : null,
+        rating_source: "Google",
+        distance_from_center_km: distance,
+      }];
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function searchReviewedFoodAndDrink(
+  destination: string,
+  lat: number,
+  lon: number,
+  interests: string[],
+) {
+  const searches: Promise<ActivitySuggestion[]>[] = [];
+  if (shouldSearchDining(interests)) {
+    searches.push(searchGooglePlacesByType(destination, lat, lon, "restaurant"));
+  }
+  if (shouldSearchNightlife(interests)) {
+    searches.push(searchGooglePlacesByType(destination, lat, lon, "bar"));
+  }
+
+  if (searches.length === 0) return [];
+  return (await Promise.all(searches)).flat();
+}
+
 function mergeActivities(
   destination: string,
   interests: string[],
+  reviewedActivities: ActivitySuggestion[],
   aiActivities: ActivitySuggestion[],
   osmActivities: ActivitySuggestion[],
 ) {
   const seen = new Set<string>();
   const merged: ActivitySuggestion[] = [];
 
-  for (const activity of [...aiActivities, ...osmActivities, ...fallbackActivities(destination, interests)]) {
+  for (const activity of [
+    ...reviewedActivities,
+    ...aiActivities,
+    ...osmActivities,
+    ...fallbackActivities(destination, interests),
+  ]) {
     const key = normalizedName(activity.activity_name);
     if (!key || seen.has(key) || isGenericName(activity.activity_name)) continue;
     if (!activityMatchesInterests(activity.activity_type, interests)) continue;
@@ -446,7 +572,7 @@ async function searchActivities(
   interests: string[],
 ) {
   const interestKey = interests.length > 0 ? [...interests].sort().join(",") : "all";
-  const cacheKey = `activities:v2:${destination.toLowerCase()}:${lat.toFixed(2)}:${
+  const cacheKey = `activities:v3:${destination.toLowerCase()}:${lat.toFixed(2)}:${
     lon.toFixed(2)
   }:${interestKey}`;
   const cached = await readCache(cacheKey);
@@ -476,16 +602,18 @@ async function searchActivities(
   });
 
   if (!res.ok) {
+    const reviewedActivities = await searchReviewedFoodAndDrink(destination, lat, lon, interests);
     const aiActivities = await generateAiActivities(destination, interests, []);
-    const fallback = mergeActivities(destination, interests, aiActivities, []);
+    const fallback = mergeActivities(destination, interests, reviewedActivities, aiActivities, []);
     await writeCache(cacheKey, fallback, 7 * 24 * 60 * 60);
     return fallback;
   }
 
   const data = await res.json();
   if (typeof data?.remark === "string" && data.remark.includes("timed out")) {
+    const reviewedActivities = await searchReviewedFoodAndDrink(destination, lat, lon, interests);
     const aiActivities = await generateAiActivities(destination, interests, []);
-    const fallback = mergeActivities(destination, interests, aiActivities, []);
+    const fallback = mergeActivities(destination, interests, reviewedActivities, aiActivities, []);
     await writeCache(cacheKey, fallback, 7 * 24 * 60 * 60);
     return fallback;
   }
@@ -524,8 +652,9 @@ async function searchActivities(
     return a.distance_from_center_km - b.distance_from_center_km;
   }).slice(0, 18);
 
+  const reviewedActivities = await searchReviewedFoodAndDrink(destination, lat, lon, interests);
   const aiActivities = await generateAiActivities(destination, interests, osmActivities);
-  const payload = mergeActivities(destination, interests, aiActivities, osmActivities);
+  const payload = mergeActivities(destination, interests, reviewedActivities, aiActivities, osmActivities);
   await writeCache(cacheKey, payload, 14 * 24 * 60 * 60);
   return payload;
 }

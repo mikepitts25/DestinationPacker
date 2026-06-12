@@ -36,6 +36,8 @@ const GROUP_ORDER: ActivityPlanningGroupTitle[] = [
   'Easy Fillers',
 ];
 
+const MAX_GROUP_ITEMS = 5;
+
 const GROUP_SUBTITLES: Record<ActivityPlanningGroupTitle, string> = {
   'Start With These': 'Already selected or strongest fit for the trip.',
   'Local Food & Drink': 'Meals, tastings, markets, and hands-on food stops.',
@@ -129,7 +131,7 @@ export function groupActivitiesForPlanning(activities: Activity[]): ActivityPlan
     return [{
       title,
       subtitle: GROUP_SUBTITLES[title],
-      data: [...data].sort(compareActivitiesForPlanning),
+      data: [...data].sort(compareActivitiesForPlanning).slice(0, MAX_GROUP_ITEMS),
     }];
   });
 }
