@@ -14,7 +14,11 @@ const contactEmail = Deno.env.get("OSM_CONTACT_EMAIL") ??
   "support@destinationpacker.app";
 const userAgent = Deno.env.get("OVERPASS_USER_AGENT") ??
   `DestinationPacker/1.0 (${contactEmail})`;
-const googlePlacesApiKey = Deno.env.get("GOOGLE_PLACES_API_KEY") ?? "";
+const googlePlacesEnabled =
+  (Deno.env.get("ENABLE_GOOGLE_PLACES") ?? "").toLowerCase() === "true";
+const googlePlacesApiKey = googlePlacesEnabled
+  ? Deno.env.get("GOOGLE_PLACES_API_KEY") ?? ""
+  : "";
 const admin = createClient(supabaseUrl, serviceRoleKey);
 
 type OverpassElement = {
@@ -334,7 +338,7 @@ Nearby map results you may include if they are worth visiting: ${JSON.stringify(
 The list must feel concrete and useful, not generic. Include a balanced mix of:
 - Named museums, castles, old buildings, viewpoints, ruins, historic districts, landmarks, or cultural places.
 - Hands-on local experiences such as cooking classes, chocolate workshops, wine tastings, tea ceremonies, craft studios, market food tours, or similar experiences when they fit ${destination}.
-- Named restaurants, cafes, bars, breweries, or tasting rooms for food and drink when they fit the request. Prefer places that are publicly well-reviewed, but do not invent ratings, review counts, awards, addresses, hours, or booking claims.
+- Named restaurants, cafes, bars, breweries, or tasting rooms for food and drink when they fit the request. Do not invent ratings, review counts, awards, addresses, hours, or booking claims.
 - Local foods, drinks, markets, independent shops, and destination-specific things to buy. For buyable items, prefix activity_name with "Buy: ".
 - Outdoor, family, nightlife, wellness, beach, or adventure suggestions only when they fit the destination or requested interests.
 
@@ -572,7 +576,7 @@ async function searchActivities(
   interests: string[],
 ) {
   const interestKey = interests.length > 0 ? [...interests].sort().join(",") : "all";
-  const cacheKey = `activities:v3:${destination.toLowerCase()}:${lat.toFixed(2)}:${
+  const cacheKey = `activities:v4:${destination.toLowerCase()}:${lat.toFixed(2)}:${
     lon.toFixed(2)
   }:${interestKey}`;
   const cached = await readCache(cacheKey);

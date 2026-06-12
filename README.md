@@ -103,6 +103,13 @@ supabase secrets set OVERPASS_URL=https://overpass-api.de/api/interpreter
 supabase secrets set OVERPASS_USER_AGENT="DestinationPacker/1.0 (you@example.com)"
 ```
 
+Google Places is disabled by default because rating and review-count fields can be expensive. To opt in for restaurant/bar rating data, set both secrets:
+
+```bash
+supabase secrets set ENABLE_GOOGLE_PLACES=true
+supabase secrets set GOOGLE_PLACES_API_KEY=your-google-places-key
+```
+
 ## Verification
 
 ```bash

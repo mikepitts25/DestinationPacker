@@ -11,6 +11,8 @@ describe('trip tab empty states', () => {
 
     expect(source).toContain('No trip ideas yet');
     expect(source).toContain('sights, classes, tastings, local buys');
+    expect(source).toContain('named restaurants, and bars');
+    expect(source).not.toContain('reviewed restaurants');
     expect(source).toContain('Refresh Ideas');
   });
 

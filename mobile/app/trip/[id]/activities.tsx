@@ -105,7 +105,7 @@ export default function ActivitiesScreen() {
           <Text style={styles.emptyEmoji}>🗺️</Text>
           <Text style={styles.emptyTitle}>No trip ideas yet</Text>
           <Text style={styles.emptyText}>
-            Refresh to search for top sights, classes, tastings, local buys, reviewed restaurants, and bars.
+            Refresh to search for top sights, classes, tastings, local buys, named restaurants, and bars.
           </Text>
           <Button mode="contained-tonal" onPress={() => fetchActivities()}>Refresh Ideas</Button>
         </View>
