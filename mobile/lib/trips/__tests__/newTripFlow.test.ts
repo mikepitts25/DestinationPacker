@@ -1,4 +1,9 @@
-import { buildWizardSteps, legProgressLabel, primaryQuestionForStep } from '../newTripFlow';
+import {
+  buildWizardSteps,
+  hasMatchedDestination,
+  legProgressLabel,
+  primaryQuestionForStep,
+} from '../newTripFlow';
 
 describe('new trip wizard flow copy', () => {
   it('starts by asking whether the trip has one stop or multiple destinations', () => {
@@ -16,5 +21,28 @@ describe('new trip wizard flow copy', () => {
     expect(primaryQuestionForStep('Transport', true, 2)).toBe('How do you get to stop 2?');
     expect(primaryQuestionForStep('Stay', true, 2)).toBe('Where will you stay at stop 2?');
     expect(legProgressLabel(1, 2)).toBe('Stop 2 of your route');
+  });
+
+  it('requires destination text to match a selected place with coordinates', () => {
+    expect(hasMatchedDestination({
+      query: 'Munich',
+      destination: 'Munich',
+      latitude: undefined,
+      longitude: undefined,
+    })).toBe(false);
+
+    expect(hasMatchedDestination({
+      query: 'Munich',
+      destination: 'Munich, Bavaria, Germany',
+      latitude: 48.1374,
+      longitude: 11.5755,
+    })).toBe(false);
+
+    expect(hasMatchedDestination({
+      query: 'Munich, Bavaria, Germany',
+      destination: 'Munich, Bavaria, Germany',
+      latitude: 48.1374,
+      longitude: 11.5755,
+    })).toBe(true);
   });
 });

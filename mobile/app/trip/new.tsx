@@ -11,6 +11,7 @@ import { Colors, Spacing, Radius } from '@/constants/theme';
 import { ACTIVITY_INTEREST_GROUPS } from '@/lib/activities/interests';
 import {
   buildWizardSteps,
+  hasMatchedDestination,
   legProgressLabel,
   primaryQuestionForStep,
   type TripRouteMode,
@@ -87,10 +88,24 @@ export default function NewTripScreen() {
   const currentStep = steps[step];
   const currentStopNumber = (form.legs?.length ?? 0) + 1;
   const progress = (step + 1) / steps.length;
+  const isDestinationStep = currentStep === 'Destination' || currentStep === 'Stop';
+  const destinationMatchesSelection = hasMatchedDestination({
+    query: destQuery,
+    destination: form.destination,
+    latitude: form.latitude,
+    longitude: form.longitude,
+  });
+  const nextDisabled = isPending || isSubmitting || (isDestinationStep && !destinationMatchesSelection);
 
   const handleDestinationSearch = useCallback((query: string) => {
     setDestQuery(query);
-    setForm((f) => ({ ...f, destination: query }));
+    setForm((f) => ({
+      ...f,
+      destination: query,
+      latitude: undefined,
+      longitude: undefined,
+      country_code: undefined,
+    }));
     if (searchTimeout) clearTimeout(searchTimeout);
     if (query.length < 2) { setSuggestions([]); return; }
     const timeout = setTimeout(async () => {
@@ -102,11 +117,17 @@ export default function NewTripScreen() {
 
   const handleSelectPlace = async (place: { place_id: string; description: string }) => {
     setDestQuery(place.description);
-    setForm((f) => ({ ...f, destination: place.description }));
+    setForm((f) => ({
+      ...f,
+      destination: place.description,
+      latitude: undefined,
+      longitude: undefined,
+      country_code: undefined,
+    }));
     setSuggestions([]);
     try {
       const details = await weatherApi.placeDetails(place.place_id);
-      if (details.lat && details.lon) {
+      if (typeof details.lat === 'number' && typeof details.lon === 'number') {
         setForm((f) => ({ ...f, latitude: details.lat, longitude: details.lon, country_code: details.country_code ?? undefined }));
       }
     } catch {}
@@ -117,6 +138,8 @@ export default function NewTripScreen() {
     if (currentStep === 'Trip Type' && !routeMode) errs.routeMode = 'Choose one destination or multi-stop route';
     if ((currentStep === 'Destination' || currentStep === 'Stop') && !form.destination) {
       errs.destination = isMultiLeg ? 'Please enter this stop' : 'Please enter a destination';
+    } else if ((currentStep === 'Destination' || currentStep === 'Stop') && !destinationMatchesSelection) {
+      errs.destination = 'Choose a destination from the search results';
     }
     if (currentStep === 'Dates') {
       if (!form.start_date) errs.start_date = 'Please select a start date';
@@ -304,6 +327,11 @@ export default function NewTripScreen() {
                 activeOutlineColor={Colors.primary}
               />
               <HelperText type="error" visible={!!errors.destination}>{errors.destination}</HelperText>
+              {!errors.destination && destQuery.trim().length > 0 && !destinationMatchesSelection && (
+                <HelperText type="info" visible>
+                  Select a matched destination from the list to continue.
+                </HelperText>
+              )}
               {suggestions.length > 0 && (
                 <View style={styles.suggestionsBox}>
                   {suggestions.map((s) => (
@@ -492,9 +520,9 @@ export default function NewTripScreen() {
         {/* Footer CTA */}
         <View style={styles.footer}>
           <TouchableOpacity
-            style={[styles.nextBtn, (isPending || isSubmitting) && styles.nextBtnDisabled]}
+            style={[styles.nextBtn, nextDisabled && styles.nextBtnDisabled]}
             onPress={handleNext}
-            disabled={isPending || isSubmitting}
+            disabled={nextDisabled}
             activeOpacity={0.85}
           >
             <LinearGradient
