@@ -388,8 +388,17 @@ export default function NewTripScreen() {
                       onPress={() => setForm((f) => ({ ...f, accommodation: a.value }))}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.optionEmoji}>{a.emoji}</Text>
-                      <Text style={[styles.gridLabel, sel && styles.optionLabelSelected]}>{a.label}</Text>
+                      <View style={styles.gridCardContent}>
+                        <Text style={styles.gridEmoji}>{a.emoji}</Text>
+                        <Text
+                          style={[styles.gridLabel, sel && styles.optionLabelSelected]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.85}
+                        >
+                          {a.label}
+                        </Text>
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
@@ -594,14 +603,34 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   gridCard: {
     width: '47%',
+    minHeight: 96,
     alignItems: 'center',
+    justifyContent: 'center',
     padding: Spacing.md,
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     borderWidth: 2,
     borderColor: Colors.border,
   },
-  gridLabel: { fontSize: 12, color: Colors.onSurface, marginTop: 4, textAlign: 'center' },
+  gridCardContent: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  gridEmoji: {
+    width: '100%',
+    fontSize: 28,
+    lineHeight: 34,
+    textAlign: 'center',
+  },
+  gridLabel: {
+    width: '100%',
+    fontSize: 13,
+    lineHeight: 17,
+    color: Colors.onSurface,
+    textAlign: 'center',
+  },
   savedLegsBox: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
