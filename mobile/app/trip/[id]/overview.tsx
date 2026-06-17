@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, Share, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Text } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
 import { useActivities, useFetchActivities } from '@/hooks/useActivities';
@@ -6,8 +6,12 @@ import { useGeneratePackingList, usePackingList } from '@/hooks/usePackingList';
 import { useTrip } from '@/hooks/useTrips';
 import { useTripWeatherForecasts } from '@/hooks/useWeather';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
-import { localActivitySuggestionsForDestination } from '@/lib/activities/localSuggestions';
-import { tripAdvisorGuideForDestination } from '@/lib/advisor/tripAdvisor';
+import {
+  buildTripAdvisorShareText,
+  tripAdvisorGuideForDestination,
+  type AdvisorItem,
+  type DestinationAdvisorGuide,
+} from '@/lib/advisor/tripAdvisor';
 import { tripDestinations } from '@/lib/trips/destinations';
 import { buildTripPrepTasks } from '@/lib/trips/prepTasks';
 
@@ -15,6 +19,16 @@ type ReadinessItem = {
   label: string;
   detail: string;
   done: boolean;
+};
+
+type BriefingGroup = {
+  title: string;
+  icon: string;
+  items: {
+    label: string;
+    item: AdvisorItem;
+    destination: string;
+  }[];
 };
 
 export default function OverviewScreen() {
@@ -40,23 +54,13 @@ export default function OverviewScreen() {
   const selectedActivities = activities?.filter((activity) => activity.selected).length ?? 0;
   const suggestedActivities = activities?.length ?? 0;
   const destinations = tripDestinations(trip, { dedupe: true });
+  const destinationGuides: DestinationAdvisorGuide[] = destinations.map((destination) => ({
+    destination: destination.destination,
+    guide: tripAdvisorGuideForDestination(destination.destination),
+  }));
   const forecastsReady = weatherRows?.filter((row) => row.forecast).length ?? 0;
   const weatherCount = weatherRows?.length ?? destinations.length;
-  const tripSparks = destinations
-    .flatMap((destination) => localActivitySuggestionsForDestination(destination.destination)
-      .map((spark) => ({ ...spark, destination: destination.destination })))
-    .slice(0, 4);
-  const briefingHighlights = destinations
-    .flatMap((destination) => {
-      const guide = tripAdvisorGuideForDestination(destination.destination);
-      return [
-        { label: 'Book', item: guide.booking[0], destination: destination.destination },
-        { label: 'Buy', item: guide.buying[0], destination: destination.destination },
-        { label: 'Comfort', item: guide.safety[0], destination: destination.destination },
-      ];
-    })
-    .filter((highlight) => highlight.item)
-    .slice(0, 3);
+  const briefingGroups = buildBriefingGroups(destinationGuides);
   const prepTasks = buildTripPrepTasks(trip);
 
   const readinessItems: ReadinessItem[] = [
@@ -84,6 +88,12 @@ export default function OverviewScreen() {
   const readinessScore = Math.round(
     readinessItems.filter((item) => item.done).length / readinessItems.length * 100,
   );
+  const handleShareBriefing = () => {
+    Share.share({
+      title: 'DestinationPacker trip briefing',
+      message: buildTripAdvisorShareText(destinationGuides),
+    }).catch(() => {});
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -133,8 +143,38 @@ export default function OverviewScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Prep Reminders</Text>
-        {prepTasks.slice(0, 4).map((task) => (
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Destination Briefing</Text>
+            <Text style={styles.sectionSubtitle}>Food, local buys, booking, customs, and safety in one place.</Text>
+          </View>
+          <Button compact mode="outlined" onPress={handleShareBriefing} style={styles.shareButton} textColor={Colors.primaryDark}>
+            Share Briefing
+          </Button>
+        </View>
+
+        {briefingGroups.map((group) => (
+          <View key={group.title} style={styles.briefingGroup}>
+            <Text style={styles.briefingGroupTitle}>{group.icon} {group.title}</Text>
+            {group.items.slice(0, 3).map(({ label, item, destination }) => (
+              <View key={`${group.title}:${destination}:${label}:${item.title}`} style={styles.briefingRow}>
+                <View style={styles.briefingRowHeader}>
+                  <Text style={styles.briefingLabel}>{label}</Text>
+                  {destinationGuides.length > 1 && (
+                    <Text style={styles.briefingDestination} numberOfLines={1}>{destination}</Text>
+                  )}
+                </View>
+                <Text style={styles.briefingTitle} numberOfLines={1}>{item.title}</Text>
+                <Text style={styles.briefingText} numberOfLines={2}>{item.description}</Text>
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Next Actions</Text>
+        {prepTasks.slice(0, 3).map((task) => (
           <View key={`${task.timing}:${task.title}`} style={styles.taskCard}>
             <View style={styles.taskTop}>
               <Text style={styles.taskTitle}>{task.title}</Text>
@@ -144,42 +184,48 @@ export default function OverviewScreen() {
           </View>
         ))}
       </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Trip Sparks</Text>
-        {tripSparks.map((spark) => (
-          <View key={`${spark.destination}:${spark.activity_name}`} style={styles.sparkCard}>
-            <View style={styles.sparkTop}>
-              <Text style={styles.sparkName} numberOfLines={1}>{spark.activity_name}</Text>
-              <Text style={styles.sparkDestination}>{spark.destination}</Text>
-            </View>
-            <Text style={styles.sparkDescription} numberOfLines={2}>{spark.description}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Briefing Highlights</Text>
-        {briefingHighlights.map((highlight) => (
-          <View key={`${highlight.destination}:${highlight.label}:${highlight.item.title}`} style={styles.briefingCard}>
-            <View style={styles.briefingTop}>
-              <Text style={styles.briefingLabel}>{highlight.label}</Text>
-              <Text style={styles.sparkDestination}>{highlight.destination}</Text>
-            </View>
-            <Text style={styles.sparkName}>{highlight.item.title}</Text>
-            <Text style={styles.sparkDescription} numberOfLines={2}>{highlight.item.description}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Before You Go</Text>
-        <View style={styles.tipCard}>
-          <Text style={styles.tipText}>Confirm opening days, booking windows, dress codes, import rules for food or natural products, and weather-sensitive plans before departure.</Text>
-        </View>
-      </View>
     </ScrollView>
   );
+}
+
+function firstItems(
+  destinationGuides: DestinationAdvisorGuide[],
+  label: string,
+  key: keyof DestinationAdvisorGuide['guide'],
+) {
+  return destinationGuides.flatMap(({ destination, guide }) => (
+    guide[key].slice(0, 1).map((item) => ({ label, item, destination }))
+  ));
+}
+
+function buildBriefingGroups(destinationGuides: DestinationAdvisorGuide[]): BriefingGroup[] {
+  return [
+    {
+      title: 'Eat & Bring Home',
+      icon: '🍽️',
+      items: [
+        ...firstItems(destinationGuides, 'Eat', 'foods'),
+        ...firstItems(destinationGuides, 'Buy', 'souvenirs'),
+      ],
+    },
+    {
+      title: 'Book & Timing',
+      icon: '📅',
+      items: [
+        ...firstItems(destinationGuides, 'Book', 'booking'),
+        ...firstItems(destinationGuides, 'Plan', 'practical'),
+      ],
+    },
+    {
+      title: 'Travel Notes',
+      icon: '🧭',
+      items: [
+        ...firstItems(destinationGuides, 'Customs', 'customs'),
+        ...firstItems(destinationGuides, 'Buying', 'buying'),
+        ...firstItems(destinationGuides, 'Comfort', 'safety'),
+      ],
+    },
+  ].filter((group) => group.items.length > 0);
 }
 
 function ActionCard({
@@ -284,7 +330,49 @@ const styles = StyleSheet.create({
   actionDetail: { ...Typography.caption, color: Colors.muted, marginTop: 2, minHeight: 32 },
   actionButton: { marginTop: Spacing.sm, borderRadius: Radius.sm },
   section: { marginTop: Spacing.lg },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
   sectionTitle: { ...Typography.h3, color: Colors.onSurface, marginBottom: Spacing.sm },
+  sectionSubtitle: { ...Typography.caption, color: Colors.muted, maxWidth: 230 },
+  shareButton: { borderRadius: 8, borderColor: Colors.border },
+  briefingGroup: {
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.sm,
+    overflow: 'hidden',
+  },
+  briefingGroupTitle: {
+    ...Typography.label,
+    color: Colors.onSurface,
+    fontWeight: '800',
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+    backgroundColor: 'rgba(10,147,150,0.05)',
+  },
+  briefingRow: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  briefingRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    marginBottom: 2,
+  },
+  briefingDestination: { ...Typography.caption, color: Colors.primary, flexShrink: 1 },
+  briefingTitle: { ...Typography.body, color: Colors.onSurface, fontWeight: '700' },
+  briefingText: { ...Typography.caption, color: Colors.muted, lineHeight: 18, marginTop: 2 },
   taskCard: {
     backgroundColor: Colors.surface,
     borderRadius: 8,

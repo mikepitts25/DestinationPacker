@@ -11,7 +11,6 @@ import OverviewScreen from './overview';
 import PackingScreen from './packing';
 import ActivitiesScreen from './activities';
 import WeatherScreen from './weather';
-import AdvisorScreen from './advisor';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -105,7 +104,6 @@ export default function TripDetailScreen() {
         <Tab.Screen name="Packing" component={PackingScreen} initialParams={{ id }} />
         <Tab.Screen name="Activities" component={ActivitiesScreen} initialParams={{ id }} />
         <Tab.Screen name="Weather" component={WeatherScreen} initialParams={{ id }} />
-        <Tab.Screen name="Advisor" component={AdvisorScreen} initialParams={{ id }} />
       </Tab.Navigator>
     </View>
   );

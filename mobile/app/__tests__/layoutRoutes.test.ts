@@ -26,4 +26,14 @@ describe('root layout routes', () => {
     expect(hasTopLevelRoute('privacy')).toBe(true);
     expect(hasTopLevelRoute('terms')).toBe(true);
   });
+
+  it('keeps trip briefing content in Overview instead of a separate Advisor tab', () => {
+    const tripIndex = fs.readFileSync(path.join(appDirectory, 'trip/[id]/index.tsx'), 'utf8');
+    const overview = fs.readFileSync(path.join(appDirectory, 'trip/[id]/overview.tsx'), 'utf8');
+
+    expect(tripIndex).not.toContain('name="Advisor"');
+    expect(overview).toContain('Destination Briefing');
+    expect(overview).toContain('Share Briefing');
+    expect(overview).toContain('Travel Notes');
+  });
 });
