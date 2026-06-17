@@ -58,6 +58,17 @@ const TIME_BY_GROUP: Partial<Record<ActivityPlanningGroupTitle, ActivityPlanTime
 
 const EVENING_TYPES = new Set<ActivityType>(['nightlife', 'dining']);
 const OUTDOOR_TYPES = new Set<ActivityType>(['outdoor', 'water', 'beach', 'snow', 'sports', 'adventure']);
+const BOOKING_TYPES = new Set<ActivityType>(['wellness', 'nightlife']);
+const BOOKING_TERMS = ['experience:', 'workshop', 'class', 'reservation', 'tour', 'session'];
+const GENERIC_PLACE_TERMS = [
+  'notable restaurant',
+  'brewery, beer hall, or taproom',
+  'late-night venue',
+  'club district',
+  'live music room',
+  'concert hall',
+  'food or craft workshop',
+];
 
 export function activityPlanningInsight(activity: Activity): string {
   if (activity.selected) {
@@ -95,15 +106,7 @@ export function activityPlanningGroupFor(activity: Activity): ActivityPlanningGr
 
   if (activity.selected) return 'Start With These';
   if (activity.activity_type === 'souvenirs' || name.startsWith('buy:')) return 'Bring Home';
-  if (
-    name.startsWith('experience:')
-    || name.includes('workshop')
-    || name.includes('class')
-    || name.includes('reservation')
-    || name.includes('tour')
-    || activity.activity_type === 'wellness'
-    || activity.activity_type === 'nightlife'
-  ) {
+  if (isWorthBookingActivity(activity)) {
     return 'Worth Booking';
   }
   if (activity.activity_type === 'dining' || name.startsWith('try:') || name.includes('tasting')) {
@@ -225,6 +228,22 @@ function practicalNoteForActivity(activity: Activity, group: ActivityPlanningGro
 
 function normalizedName(name: string) {
   return name.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function isWorthBookingActivity(activity: Activity) {
+  const name = normalizedName(activity.activity_name);
+  const bookingLike = BOOKING_TERMS.some((term) => name.includes(term)) || BOOKING_TYPES.has(activity.activity_type);
+  return bookingLike && hasNamedPlaceSignal(activity);
+}
+
+function hasNamedPlaceSignal(activity: Activity) {
+  const name = normalizedName(activity.activity_name);
+  if (GENERIC_PLACE_TERMS.some((term) => name.includes(term))) return false;
+  if (activity.external_id) return true;
+  if (activity.rating !== null || activity.review_count !== null || activity.photo_url || activity.distance_from_center_km !== null) {
+    return true;
+  }
+  return false;
 }
 
 function formatCompactNumber(value: number) {

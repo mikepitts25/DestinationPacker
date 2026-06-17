@@ -117,8 +117,9 @@ describe('activity planning helpers', () => {
       }),
       activity({
         id: 'booking',
-        activity_name: 'Experience: Belgian chocolate workshop',
+        activity_name: 'Laurent Gerbaud chocolate workshop',
         activity_type: 'dining',
+        external_id: 'place:laurent-gerbaud',
       }),
       activity({
         id: 'souvenir',
@@ -144,6 +145,36 @@ describe('activity planning helpers', () => {
     expect(byTitle.get('Bring Home')).toEqual(['souvenir']);
     expect(byTitle.get('Outdoor / Weather Dependent')).toEqual(['outdoor']);
     expect(byTitle.get('Easy Fillers')).toEqual(['easy']);
+  });
+
+  it('only uses concrete named places in Worth Booking', () => {
+    const groups = groupActivitiesForPlanning([
+      activity({
+        id: 'generic-restaurant',
+        activity_name: 'Munich, Bavaria, Germany notable restaurant reservation',
+        activity_type: 'dining',
+        source: 'suggested',
+      }),
+      activity({
+        id: 'generic-brewery',
+        activity_name: 'Munich, Bavaria, Germany brewery, beer hall, or taproom',
+        activity_type: 'nightlife',
+        source: 'suggested',
+      }),
+      activity({
+        id: 'named-bath',
+        activity_name: 'Szechenyi Thermal Bath',
+        activity_type: 'wellness',
+        source: 'openstreetmap',
+        external_id: 'osm:123',
+        rating: 4.6,
+      }),
+    ]);
+
+    const byTitle = new Map(groups.map((group) => [group.title, group.data.map((item) => item.id)]));
+    expect(byTitle.get('Worth Booking')).toEqual(['named-bath']);
+    expect(byTitle.get('Local Food & Drink')).toEqual(['generic-restaurant']);
+    expect(byTitle.get('Easy Fillers')).toEqual(['generic-brewery']);
   });
 
   it('limits each planning group to the top five activities by signal', () => {

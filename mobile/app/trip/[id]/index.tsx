@@ -90,13 +90,38 @@ export default function TripDetailScreen() {
       {/* Material Top Tab navigator */}
       <Tab.Navigator
         screenOptions={{
-          tabBarActiveTintColor: Colors.gold,
+          tabBarActiveTintColor: Colors.primaryDark,
           tabBarInactiveTintColor: Colors.muted,
-          tabBarIndicatorStyle: { backgroundColor: Colors.gold, height: 3, borderRadius: 2 },
-          tabBarStyle: { backgroundColor: Colors.surface, elevation: 0, shadowOpacity: 0 },
-          tabBarLabelStyle: { fontSize: 13, fontWeight: '600', textTransform: 'none' },
+          tabBarIndicatorStyle: {
+            backgroundColor: Colors.gold,
+            height: 4,
+            borderRadius: 4,
+            marginHorizontal: 14,
+          },
+          tabBarStyle: {
+            backgroundColor: Colors.surface,
+            elevation: 0,
+            shadowOpacity: 0,
+            borderBottomWidth: 1,
+            borderBottomColor: Colors.border,
+          },
+          tabBarContentContainerStyle: {
+            paddingHorizontal: Spacing.xs,
+          },
+          tabBarLabelStyle: {
+            fontSize: 13,
+            fontWeight: '800',
+            textTransform: 'none',
+            letterSpacing: 0,
+          },
           tabBarScrollEnabled: true,
-          tabBarItemStyle: { width: 'auto', paddingHorizontal: 4 },
+          tabBarItemStyle: {
+            width: 'auto',
+            minWidth: 92,
+            paddingHorizontal: 6,
+            paddingTop: 8,
+            paddingBottom: 10,
+          },
           tabBarPressColor: 'rgba(10,147,150,0.1)',
         }}
       >

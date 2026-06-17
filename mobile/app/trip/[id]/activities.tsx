@@ -29,13 +29,13 @@ const ACTIVITY_EMOJI: Record<ActivityType, string> = {
   adventure: '🧗',
 };
 
-const GROUP_EMOJI: Record<ActivityPlanningGroup['title'], string> = {
-  'Start With These': '⭐',
-  'Local Food & Drink': '🍽️',
-  'Worth Booking': '📅',
-  'Bring Home': '🎁',
-  'Easy Fillers': '🧭',
-  'Outdoor / Weather Dependent': '🥾',
+const GROUP_META: Record<ActivityPlanningGroup['title'], { accent: string; light: string; mark: string }> = {
+  'Start With These': { accent: Colors.goldDark, light: '#fff8e1', mark: 'star' },
+  'Local Food & Drink': { accent: '#0a9396', light: '#edf7f7', mark: 'plate' },
+  'Worth Booking': { accent: '#8a5a00', light: '#fff4d6', mark: 'ticket' },
+  'Bring Home': { accent: '#7c3aed', light: '#f3ecff', mark: 'parcel' },
+  'Easy Fillers': { accent: '#2f6f73', light: '#eef7f6', mark: 'compass' },
+  'Outdoor / Weather Dependent': { accent: '#4f772d', light: '#f0f8e8', mark: 'trail' },
 };
 
 export default function ActivitiesScreen() {
@@ -121,28 +121,30 @@ export default function ActivitiesScreen() {
                 {row.map((group) => {
                   const isActive = group.title === activeTitle;
                   const addedCount = group.data.filter((activity) => activity.selected).length;
+                  const groupMeta = GROUP_META[group.title];
 
                   return (
                     <TouchableOpacity
                       key={group.title}
-                      style={[styles.tile, isActive && styles.tileActive]}
+                      style={[styles.tile, isActive && { borderColor: groupMeta.accent, backgroundColor: groupMeta.light }]}
                       onPress={() => setSelectedGroupTitle(group.title)}
                       activeOpacity={0.78}
                     >
-                      <Text style={styles.tileEmoji}>{GROUP_EMOJI[group.title]}</Text>
-                      <Text style={[styles.tileTitle, isActive && styles.tileTitleActive]} numberOfLines={2}>
+                      <ActivityGroupIcon meta={groupMeta} active={isActive} />
+                      <Text
+                        style={[styles.tileTitle, isActive && { color: groupMeta.accent }]}
+                        numberOfLines={2}
+                      >
                         {group.title}
                       </Text>
-                      <View style={styles.tileFooter}>
-                        <Text style={[styles.tileCount, isActive && styles.tileCountActive]}>
-                          Top {group.data.length}
-                        </Text>
-                        {addedCount > 0 && (
-                          <View style={styles.tileBadge}>
-                            <Text style={styles.tileBadgeText}>{addedCount}</Text>
-                          </View>
-                        )}
-                      </View>
+                      <Text style={[styles.tileCount, isActive && { color: groupMeta.accent }]}>
+                        Top {group.data.length}
+                      </Text>
+                      {addedCount > 0 && (
+                        <View style={[styles.tileBadge, { backgroundColor: groupMeta.accent }]}>
+                          <Text style={styles.tileBadgeText}>{addedCount}</Text>
+                        </View>
+                      )}
                     </TouchableOpacity>
                   );
                 })}
@@ -154,13 +156,18 @@ export default function ActivitiesScreen() {
           {activeGroup && (
             <View style={styles.expandedCard}>
               <View style={styles.expandedHeader}>
-                <View>
-                  <Text style={styles.expandedTitle}>
-                    {GROUP_EMOJI[activeGroup.title]} {activeGroup.title}
-                  </Text>
-                  <Text style={styles.expandedSubtitle}>{activeGroup.subtitle}</Text>
+                <View style={styles.expandedTitleRow}>
+                  <ActivityGroupIcon meta={GROUP_META[activeGroup.title]} active compact />
+                  <View style={styles.expandedTitleBlock}>
+                    <Text style={styles.expandedTitle}>{activeGroup.title}</Text>
+                    <Text style={styles.expandedSubtitle}>{activeGroup.subtitle}</Text>
+                  </View>
                 </View>
-                <Text style={styles.expandedCount}>{activeGroup.data.length}/5</Text>
+                <View style={[styles.expandedCountPill, { backgroundColor: GROUP_META[activeGroup.title].light }]}>
+                  <Text style={[styles.expandedCount, { color: GROUP_META[activeGroup.title].accent }]}>
+                    {activeGroup.data.length}/5
+                  </Text>
+                </View>
               </View>
 
               {activeGroup.data.map((activity) => (
@@ -176,6 +183,64 @@ export default function ActivitiesScreen() {
 
           <View style={{ height: 92 }} />
         </ScrollView>
+      )}
+    </View>
+  );
+}
+
+function ActivityGroupIcon({
+  meta,
+  active,
+  compact = false,
+}: {
+  meta: { accent: string; light: string; mark: string };
+  active: boolean;
+  compact?: boolean;
+}) {
+  const plateStyle = [
+    compact ? styles.groupIconCompact : styles.groupIcon,
+    { backgroundColor: active ? meta.accent : meta.light },
+  ];
+  const lineColor = active ? '#FFFFFF' : meta.accent;
+
+  return (
+    <View style={plateStyle}>
+      {meta.mark === 'plate' && (
+        <View style={styles.plateMark}>
+          <View style={[styles.plateCircle, { borderColor: lineColor }]} />
+          <View style={[styles.plateLine, { backgroundColor: lineColor }]} />
+        </View>
+      )}
+      {meta.mark === 'ticket' && (
+        <View style={[styles.ticketMark, { borderColor: lineColor }]}>
+          <View style={[styles.ticketStub, { backgroundColor: lineColor }]} />
+          <View style={[styles.ticketDot, { backgroundColor: lineColor }]} />
+        </View>
+      )}
+      {meta.mark === 'parcel' && (
+        <View style={[styles.parcelMark, { borderColor: lineColor }]}>
+          <View style={[styles.parcelRibbonVertical, { backgroundColor: lineColor }]} />
+          <View style={[styles.parcelRibbonHorizontal, { backgroundColor: lineColor }]} />
+        </View>
+      )}
+      {meta.mark === 'compass' && (
+        <View style={[styles.compassMark, { borderColor: lineColor }]}>
+          <View style={[styles.compassNeedle, { backgroundColor: lineColor }]} />
+        </View>
+      )}
+      {meta.mark === 'trail' && (
+        <View style={styles.trailMark}>
+          <View style={[styles.trailStepLarge, { backgroundColor: lineColor }]} />
+          <View style={[styles.trailStepSmall, { backgroundColor: lineColor }]} />
+          <View style={[styles.trailLine, { backgroundColor: lineColor }]} />
+        </View>
+      )}
+      {meta.mark === 'star' && (
+        <View style={styles.starMark}>
+          <View style={[styles.starDotLarge, { backgroundColor: lineColor }]} />
+          <View style={[styles.starDotSmall, { backgroundColor: lineColor }]} />
+          <View style={[styles.starDash, { backgroundColor: lineColor }]} />
+        </View>
       )}
     </View>
   );
@@ -276,34 +341,34 @@ const styles = StyleSheet.create({
   selectedPillText: { ...Typography.caption, color: Colors.primaryDark, fontWeight: '800' },
   refreshButton: { alignSelf: 'flex-start', borderRadius: 8, borderColor: Colors.border },
   scrollContent: { paddingBottom: Spacing.xl },
-  grid: { paddingHorizontal: Spacing.md, gap: 10 },
-  gridRow: { flexDirection: 'row', gap: 10 },
+  grid: { paddingHorizontal: Spacing.md, gap: 12 },
+  gridRow: { flexDirection: 'row', gap: 12 },
   tile: {
     flex: 1,
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 14,
+    borderWidth: 1.5,
     borderColor: Colors.border,
-    padding: Spacing.sm,
-    gap: 4,
-    minHeight: 92,
-  },
-  tileActive: {
-    borderColor: Colors.primary,
-    backgroundColor: 'rgba(10,147,150,0.05)',
-  },
-  tileEmoji: { fontSize: 22 },
-  tileTitle: { ...Typography.label, color: Colors.onSurface, fontWeight: '800', minHeight: 34 },
-  tileTitleActive: { color: Colors.primaryDark },
-  tileFooter: {
-    flexDirection: 'row',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 12,
+    minHeight: 118,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 'auto',
+    justifyContent: 'center',
+    gap: 8,
   },
-  tileCount: { ...Typography.caption, color: Colors.muted, fontWeight: '700' },
-  tileCountActive: { color: Colors.primaryDark },
+  tileTitle: {
+    ...Typography.label,
+    color: Colors.onSurface,
+    fontWeight: '800',
+    minHeight: 34,
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+  tileCount: { ...Typography.caption, color: Colors.muted, fontWeight: '800', textAlign: 'center' },
   tileBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
     minWidth: 22,
     height: 22,
     borderRadius: 11,
@@ -313,6 +378,53 @@ const styles = StyleSheet.create({
   },
   tileBadgeText: { fontSize: 11, color: '#FFFFFF', fontWeight: '800' },
   tileSpacer: { flex: 1 },
+  groupIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupIconCompact: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  plateMark: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  plateCircle: { width: 18, height: 18, borderRadius: 9, borderWidth: 2 },
+  plateLine: { position: 'absolute', right: 3, width: 2, height: 22, borderRadius: 1 },
+  ticketMark: {
+    width: 29,
+    height: 21,
+    borderRadius: 5,
+    borderWidth: 2,
+    justifyContent: 'center',
+    paddingLeft: 7,
+  },
+  ticketStub: { position: 'absolute', left: 8, width: 2, height: 17, borderRadius: 1 },
+  ticketDot: { width: 5, height: 5, borderRadius: 3, alignSelf: 'flex-end', marginRight: 6 },
+  parcelMark: { width: 26, height: 24, borderRadius: 5, borderWidth: 2 },
+  parcelRibbonVertical: { position: 'absolute', left: 11, top: 0, bottom: 0, width: 2 },
+  parcelRibbonHorizontal: { position: 'absolute', left: 0, right: 0, top: 10, height: 2 },
+  compassMark: {
+    width: 27,
+    height: 27,
+    borderRadius: 14,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compassNeedle: { width: 3, height: 17, borderRadius: 2, transform: [{ rotate: '35deg' }] },
+  trailMark: { width: 29, height: 25, justifyContent: 'center' },
+  trailStepLarge: { width: 11, height: 11, borderRadius: 6, marginLeft: 3 },
+  trailStepSmall: { width: 8, height: 8, borderRadius: 4, marginLeft: 17, marginTop: 3 },
+  trailLine: { position: 'absolute', left: 10, top: 12, width: 14, height: 2, borderRadius: 1, transform: [{ rotate: '28deg' }] },
+  starMark: { width: 28, height: 24, justifyContent: 'center', alignItems: 'center' },
+  starDotLarge: { width: 13, height: 13, borderRadius: 7 },
+  starDotSmall: { position: 'absolute', right: 3, top: 3, width: 6, height: 6, borderRadius: 3 },
+  starDash: { position: 'absolute', left: 3, bottom: 4, width: 18, height: 3, borderRadius: 2 },
   expandedCard: {
     backgroundColor: Colors.surface,
     marginHorizontal: Spacing.md,
@@ -324,7 +436,7 @@ const styles = StyleSheet.create({
   },
   expandedHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.sm,
     padding: Spacing.md,
@@ -332,9 +444,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
+  expandedTitleRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minWidth: 0 },
+  expandedTitleBlock: { flex: 1, minWidth: 0 },
   expandedTitle: { ...Typography.h3, color: Colors.onSurface },
   expandedSubtitle: { ...Typography.caption, color: Colors.muted, marginTop: 2, maxWidth: 260 },
-  expandedCount: { ...Typography.caption, color: Colors.primaryDark, fontWeight: '800' },
+  expandedCountPill: {
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  expandedCount: { ...Typography.caption, fontWeight: '800' },
   activityRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
