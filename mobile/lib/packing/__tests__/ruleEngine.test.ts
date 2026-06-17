@@ -112,6 +112,20 @@ describe('packing rule engine', () => {
     expect(items.find((item) => item.item_name === 'Sunscreen SPF 50+')?.quantity).toBe(1);
   });
 
+  it('splits activity clothing additions by known traveler types', () => {
+    const items = generateActivityPackingItems('beach', {
+      ...baseTrip,
+      travelers: 2,
+      male_travelers: 1,
+      female_travelers: 1,
+    });
+
+    expect(items.find((item) => item.item_name === 'Swimsuit' && item.traveler_type === 'male')?.quantity).toBe(2);
+    expect(items.find((item) => item.item_name === 'Swimsuit' && item.traveler_type === 'female')?.quantity).toBe(2);
+    expect(items.find((item) => item.item_name === 'Swimsuit' && item.traveler_type === 'shared')).toBeUndefined();
+    expect(items.find((item) => item.item_name === 'Sunscreen SPF 50+')?.traveler_type).toBe('shared');
+  });
+
   it('tags personal, child, pet, and shared items by traveler type', () => {
     const items = generatePackingList({
       ...baseTrip,
@@ -127,6 +141,21 @@ describe('packing rule engine', () => {
     expect(items.find((item) => item.item_name === 'Bras')?.traveler_type).toBe('female');
     expect(items.find((item) => item.item_name === 'Kids sunscreen')?.traveler_type).toBe('child');
     expect(items.find((item) => item.item_name === 'Pet leash')?.traveler_type).toBe('pet');
+  });
+
+  it('keeps generated clothing out of Shared when traveler types are known', () => {
+    const items = generatePackingList({
+      ...baseTrip,
+      travelers: 2,
+      male_travelers: 1,
+      female_travelers: 1,
+    }, ['rain']);
+
+    expect(items.find((item) => item.item_name === 'Underwear' && item.traveler_type === 'male')?.quantity).toBe(5);
+    expect(items.find((item) => item.item_name === 'Underwear' && item.traveler_type === 'female')?.quantity).toBe(5);
+    expect(items.find((item) => item.item_name === 'Waterproof rain jacket' && item.traveler_type === 'male')?.quantity).toBe(1);
+    expect(items.find((item) => item.item_name === 'Waterproof rain jacket' && item.traveler_type === 'female')?.quantity).toBe(1);
+    expect(items.filter((item) => item.category === 'Clothing' && item.traveler_type === 'shared')).toEqual([]);
   });
 
   it('uses all trip legs when adding travel and accommodation packing rules', () => {
@@ -169,14 +198,17 @@ describe('packing rule engine', () => {
     expect(items.find((item) => item.item_name === 'T-shirts / tops')?.quantity).toBe(14);
   });
 
-  it('adds female traveler personal care items without changing traveler quantity scaling', () => {
+  it('adds female traveler personal care items while splitting clothing quantities by traveler type', () => {
     const items = generatePackingList({
       ...baseTrip,
       travelers: 3,
       female_travelers: 2,
     });
 
-    expect(items.find((item) => item.item_name === 'Underwear')?.quantity).toBe(15);
+    const underwear = items.filter((item) => item.item_name === 'Underwear');
+    expect(underwear.reduce((total, item) => total + item.quantity, 0)).toBe(15);
+    expect(underwear.find((item) => item.traveler_type === 'female')?.quantity).toBe(10);
+    expect(underwear.find((item) => item.traveler_type === 'shared')?.quantity).toBe(5);
     expect(names(items)).toContain('Bras');
     expect(names(items)).toContain('Makeup / cosmetics bag');
   });

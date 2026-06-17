@@ -788,7 +788,7 @@ export const activitiesApi = {
       if (deleteError) throw new ApiError(deleteError.message, 400);
     } else {
       const additions = packingActivityKeysForActivity(updated).flatMap((activityKey) => (
-        generateActivityPackingItems(activityKey, trip.travelers)
+        generateActivityPackingItems(activityKey, trip)
       ));
       if (additions.length > 0) {
         const { data: existingRows, error: existingError } = await supabase
