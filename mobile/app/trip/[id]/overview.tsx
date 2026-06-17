@@ -4,7 +4,6 @@ import { useLocalSearchParams } from 'expo-router';
 import { useActivities, useFetchActivities } from '@/hooks/useActivities';
 import { useGeneratePackingList, usePackingList } from '@/hooks/usePackingList';
 import { useTrip } from '@/hooks/useTrips';
-import { useTripWeatherForecasts } from '@/hooks/useWeather';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import {
   buildTripAdvisorShareText,
@@ -14,12 +13,6 @@ import {
 } from '@/lib/advisor/tripAdvisor';
 import { tripDestinations } from '@/lib/trips/destinations';
 import { buildTripPrepTasks } from '@/lib/trips/prepTasks';
-
-type ReadinessItem = {
-  label: string;
-  detail: string;
-  done: boolean;
-};
 
 type BriefingGroup = {
   title: string;
@@ -36,7 +29,6 @@ export default function OverviewScreen() {
   const { data: trip, isLoading: isTripLoading } = useTrip(tripId);
   const { data: packingList, isLoading: isPackingLoading } = usePackingList(tripId);
   const { data: activities } = useActivities(tripId);
-  const { data: weatherRows } = useTripWeatherForecasts(trip);
   const { mutate: generatePacking, isPending: isGeneratingPacking } = useGeneratePackingList(tripId);
   const { mutate: fetchActivities, isPending: isFetchingActivities } = useFetchActivities(tripId);
 
@@ -58,36 +50,8 @@ export default function OverviewScreen() {
     destination: destination.destination,
     guide: tripAdvisorGuideForDestination(destination.destination),
   }));
-  const forecastsReady = weatherRows?.filter((row) => row.forecast).length ?? 0;
-  const weatherCount = weatherRows?.length ?? destinations.length;
   const briefingGroups = buildBriefingGroups(destinationGuides);
   const prepTasks = buildTripPrepTasks(trip);
-
-  const readinessItems: ReadinessItem[] = [
-    {
-      label: 'Packing list',
-      detail: totalItems > 0 ? `${packedItems}/${totalItems} packed` : 'Generate a list',
-      done: totalItems > 0 && packingProgress >= 0.7,
-    },
-    {
-      label: 'Activities',
-      detail: selectedActivities > 0 ? `${selectedActivities} selected` : `${suggestedActivities} ideas found`,
-      done: selectedActivities > 0,
-    },
-    {
-      label: 'Weather',
-      detail: weatherCount > 0 ? `${forecastsReady}/${weatherCount} forecasts ready` : 'No coordinates',
-      done: weatherCount > 0 && forecastsReady === weatherCount,
-    },
-    {
-      label: 'Trip context',
-      detail: trip.activity_interests.length > 0 ? `${trip.activity_interests.length} interests set` : 'General suggestions',
-      done: trip.activity_interests.length > 0,
-    },
-  ];
-  const readinessScore = Math.round(
-    readinessItems.filter((item) => item.done).length / readinessItems.length * 100,
-  );
   const handleShareBriefing = () => {
     Share.share({
       title: 'DestinationPacker trip briefing',
@@ -97,32 +61,6 @@ export default function OverviewScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.heroCard}>
-        <View>
-          <Text style={styles.eyebrow}>Trip readiness</Text>
-          <Text style={styles.score}>{readinessScore}%</Text>
-        </View>
-        <View style={styles.scoreRing}>
-          <Text style={styles.scoreRingText}>{readinessItems.filter((item) => item.done).length}/{readinessItems.length}</Text>
-        </View>
-      </View>
-
-      <View style={styles.checklist}>
-        {readinessItems.map((item) => (
-          <View key={item.label} style={styles.checkRow}>
-            <View style={[styles.checkIcon, item.done && styles.checkIconDone]}>
-              <Text style={[styles.checkIconText, item.done && styles.checkIconTextDone]}>
-                {item.done ? '✓' : '•'}
-              </Text>
-            </View>
-            <View style={styles.checkTextWrap}>
-              <Text style={styles.checkLabel}>{item.label}</Text>
-              <Text style={styles.checkDetail}>{item.detail}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-
       <View style={styles.actionGrid}>
         <ActionCard
           title="Packing"
@@ -259,63 +197,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: Spacing.md, paddingBottom: 96 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  heroCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 8,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  eyebrow: { ...Typography.label, color: Colors.muted, textTransform: 'uppercase' },
-  score: { fontSize: 42, fontWeight: '800', color: Colors.onSurface, marginTop: 2 },
-  scoreRing: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 6,
-    borderColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scoreRingText: { ...Typography.label, color: Colors.primaryDark, fontWeight: '800' },
-  checklist: {
-    backgroundColor: Colors.surface,
-    borderRadius: 8,
-    marginTop: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  checkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  checkIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.background,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.sm,
-  },
-  checkIconDone: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  checkIconText: { color: Colors.muted, fontWeight: '800' },
-  checkIconTextDone: { color: '#FFFFFF' },
-  checkTextWrap: { flex: 1 },
-  checkLabel: { ...Typography.body, color: Colors.onSurface, fontWeight: '700' },
-  checkDetail: { ...Typography.caption, color: Colors.muted, marginTop: 2 },
   actionGrid: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    marginTop: Spacing.sm,
   },
   actionCard: {
     flex: 1,

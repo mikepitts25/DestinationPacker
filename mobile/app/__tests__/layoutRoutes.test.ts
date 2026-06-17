@@ -30,10 +30,13 @@ describe('root layout routes', () => {
   it('keeps trip briefing content in Overview instead of a separate Advisor tab', () => {
     const tripIndex = fs.readFileSync(path.join(appDirectory, 'trip/[id]/index.tsx'), 'utf8');
     const overview = fs.readFileSync(path.join(appDirectory, 'trip/[id]/overview.tsx'), 'utf8');
+    const packing = fs.readFileSync(path.join(appDirectory, 'trip/[id]/packing.tsx'), 'utf8');
 
     expect(tripIndex).not.toContain('name="Advisor"');
     expect(overview).toContain('Destination Briefing');
     expect(overview).toContain('Share Briefing');
     expect(overview).toContain('Travel Notes');
+    expect(overview).not.toContain('Trip readiness');
+    expect(packing).toContain('Packing readiness');
   });
 });

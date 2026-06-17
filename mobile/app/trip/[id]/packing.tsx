@@ -66,6 +66,54 @@ const SOURCE_META: Record<PackingItem['source'], { label: string; detail: string
   },
 };
 
+type PackingReadinessCheck = {
+  label: string;
+  detail: string;
+  ready: boolean;
+};
+
+function buildPackingReadinessChecks(packingList?: PackingList | null): PackingReadinessCheck[] {
+  if (!packingList || packingList.total_items === 0) return [];
+
+  const items = packingList.items;
+  const essentialItems = items.filter((item) => item.essential);
+  const missingEssentials = essentialItems.filter((item) => !item.packed).length;
+  const documentItems = items.filter((item) => item.category === 'Documents');
+  const missingDocuments = documentItems.filter((item) => !item.packed).length;
+  const activityGear = items.filter((item) => item.source === 'activity');
+  const missingActivityGear = activityGear.filter((item) => !item.packed).length;
+
+  return [
+    {
+      label: 'Essentials',
+      detail: essentialItems.length === 0
+        ? 'No essentials flagged'
+        : missingEssentials === 0
+          ? 'All essentials packed'
+          : `${missingEssentials} essential${missingEssentials === 1 ? '' : 's'} left`,
+      ready: missingEssentials === 0,
+    },
+    {
+      label: 'Documents',
+      detail: documentItems.length === 0
+        ? 'No documents listed'
+        : missingDocuments === 0
+          ? 'Documents packed'
+          : `${missingDocuments} document${missingDocuments === 1 ? '' : 's'} left`,
+      ready: missingDocuments === 0,
+    },
+    {
+      label: 'Activity gear',
+      detail: activityGear.length === 0
+        ? 'No activity extras'
+        : missingActivityGear === 0
+          ? 'Activity gear packed'
+          : `${missingActivityGear} activity item${missingActivityGear === 1 ? '' : 's'} left`,
+      ready: missingActivityGear === 0,
+    },
+  ];
+}
+
 export default function PackingScreen() {
   const { id: tripId } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -120,6 +168,8 @@ export default function PackingScreen() {
   const packedCount = packingList?.packed_items ?? 0;
   const totalCount = packingList?.total_items ?? 0;
   const progressPct = totalCount > 0 ? packedCount / totalCount : 0;
+  const packingReadiness = buildPackingReadinessChecks(packingList);
+  const readinessReadyCount = packingReadiness.filter((check) => check.ready).length;
 
   const activeTravelerType = selectedTraveler ?? travelerSections[0]?.travelerType ?? null;
   const activeSection = travelerSections.find(s => s.travelerType === activeTravelerType);
@@ -241,6 +291,25 @@ export default function PackingScreen() {
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${progressPct * 100}%` as `${number}%` }]} />
         </View>
+        {packingReadiness.length > 0 && (
+          <View style={styles.readinessPanel}>
+            <View style={styles.readinessHeader}>
+              <Text style={styles.readinessTitle}>Packing readiness</Text>
+              <Text style={styles.readinessScore}>{readinessReadyCount}/{packingReadiness.length} ready</Text>
+            </View>
+            {packingReadiness.map((check) => (
+              <View key={check.label} style={styles.readinessRow}>
+                <View style={[styles.readinessDot, check.ready && styles.readinessDotReady]}>
+                  <Text style={[styles.readinessDotText, check.ready && styles.readinessDotTextReady]}>
+                    {check.ready ? '✓' : '•'}
+                  </Text>
+                </View>
+                <Text style={styles.readinessLabel}>{check.label}</Text>
+                <Text style={styles.readinessDetail} numberOfLines={1}>{check.detail}</Text>
+              </View>
+            ))}
+          </View>
+        )}
         <View style={styles.progressActions}>
           <TouchableOpacity style={styles.hidePackedRow} onPress={() => setHidePacked(v => !v)}>
             <View style={[styles.miniCheck, hidePacked && styles.miniCheckActive]}>
@@ -609,6 +678,42 @@ const styles = StyleSheet.create({
   progressPct: { fontSize: 13, fontWeight: '700', color: Colors.gold },
   progressTrack: { height: 6, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: Colors.gold, borderRadius: 3 },
+  readinessPanel: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    gap: 7,
+  },
+  readinessHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  readinessTitle: { fontSize: 12, color: Colors.onSurface, fontWeight: '800' },
+  readinessScore: { fontSize: 11, color: Colors.primaryDark, fontWeight: '800' },
+  readinessRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    minHeight: 20,
+  },
+  readinessDot: {
+    width: 17,
+    height: 17,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.background,
+  },
+  readinessDotReady: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  readinessDotText: { fontSize: 11, color: Colors.muted, fontWeight: '800', lineHeight: 14 },
+  readinessDotTextReady: { color: '#FFFFFF' },
+  readinessLabel: { width: 86, fontSize: 12, color: Colors.onSurface, fontWeight: '700' },
+  readinessDetail: { flex: 1, minWidth: 0, fontSize: 12, color: Colors.muted },
   progressActions: {
     flexDirection: 'row',
     alignItems: 'center',
