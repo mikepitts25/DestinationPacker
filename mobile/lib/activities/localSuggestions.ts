@@ -477,26 +477,7 @@ export function localActivitySuggestionsForDestination(destination: string): Act
     }
   }
 
-  if (suggestions.length > 0) return suggestions;
-
-  return [
-    {
-      activity_name: `Experience: ${destination} food or craft workshop`,
-      activity_type: 'dining',
-      description: `Prioritize a hands-on class, maker studio, tasting, or market-led experience specific to ${destination}.`,
-      source: 'local_guide',
-      external_id: null,
-      photo_url: null,
-    },
-    {
-      activity_name: `Buy: Small local specialty from ${destination}`,
-      activity_type: 'souvenirs',
-      description: `Choose something made, grown, cooked, or sold locally, and confirm import rules before packing food or natural products.`,
-      source: 'local_guide',
-      external_id: null,
-      photo_url: null,
-    },
-  ];
+  return suggestions;
 }
 
 export function appendLocalActivitySuggestions(

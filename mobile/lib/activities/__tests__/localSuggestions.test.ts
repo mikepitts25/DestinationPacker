@@ -48,18 +48,9 @@ describe('local activity suggestions', () => {
     expect(activities.map((activity) => activity.activity_name)).toContain('Buy: Ampelmann souvenir');
   });
 
-  it('falls back to destination-specific guide prompts for unknown destinations', () => {
+  it('does not invent guide prompts for unknown destinations', () => {
     const suggestions = localActivitySuggestionsForDestination('Somewhere New');
 
-    expect(suggestions).toEqual([
-      expect.objectContaining({
-        activity_name: 'Experience: Somewhere New food or craft workshop',
-        activity_type: 'dining',
-      }),
-      expect.objectContaining({
-        activity_name: 'Buy: Small local specialty from Somewhere New',
-        activity_type: 'souvenirs',
-      }),
-    ]);
+    expect(suggestions).toEqual([]);
   });
 });

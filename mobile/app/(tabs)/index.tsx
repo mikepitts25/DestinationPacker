@@ -2,6 +2,7 @@ import { View, FlatList, StyleSheet, TouchableOpacity, Alert, StatusBar } from '
 import { Text, FAB, ActivityIndicator, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTrips, useDeleteTrip } from '@/hooks/useTrips';
 import { useAuthStore } from '@/stores/authStore';
 import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
@@ -53,15 +54,17 @@ export default function HomeScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* Teal gradient header strip */}
-      <LinearGradient
-        colors={[Colors.deepDark, Colors.primaryDark]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerStrip}
-      >
-        <Text style={styles.headerTitle}>My Trips</Text>
-        <Text style={styles.headerSub}>{upcomingTrips.length} upcoming</Text>
-      </LinearGradient>
+      <SafeAreaView edges={['top']} style={styles.headerSafe}>
+        <LinearGradient
+          colors={[Colors.deepDark, Colors.primaryDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerStrip}
+        >
+          <Text style={styles.headerTitle}>My Trips</Text>
+          <Text style={styles.headerSub}>{upcomingTrips.length} upcoming</Text>
+        </LinearGradient>
+      </SafeAreaView>
 
       {/* White cream body */}
       <View style={styles.body}>
@@ -193,13 +196,14 @@ function EmptyTrips({ onStart }: { onStart: () => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.deepDark },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+  headerSafe: { backgroundColor: Colors.deepDark },
   headerStrip: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
+    paddingTop: Spacing.lg,
     paddingBottom: Spacing.xl + 8,
   },
-  headerTitle: { fontSize: 26, fontWeight: '800', color: '#FFF9F4' },
-  headerSub: { fontSize: 13, color: 'rgba(255,249,244,0.65)', marginTop: 2 },
+  headerTitle: { fontSize: 30, fontWeight: '800', color: '#FFF9F4' },
+  headerSub: { fontSize: 14, color: 'rgba(255,249,244,0.72)', marginTop: 3 },
   body: {
     flex: 1,
     backgroundColor: Colors.background,

@@ -65,7 +65,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ title: 'My Trips' }}
+        options={{ title: 'My Trips', headerShown: false }}
       />
       <Tabs.Screen
         name="profile"

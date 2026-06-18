@@ -33,11 +33,15 @@ describe('activity suggestion helpers', () => {
     ]);
   });
 
-  it('adds missing categories from selected interests so suggestions stay varied', () => {
+  it('does not fill food and nightlife interests with generic suggested prompts', () => {
     const activities = completeActivitySuggestions(
       [
         suggestion('Museum Island', 'cultural', 'osm:node:1'),
         suggestion('Brandenburg Gate', 'cultural', 'osm:node:2'),
+        {
+          ...suggestion('Book one hands-on Berlin, Germany food or craft session', 'dining'),
+          source: 'suggested',
+        },
       ],
       'Berlin, Germany',
       ['museums', 'historical_sites', 'fine_dining', 'local_markets', 'live_music'],
@@ -46,29 +50,25 @@ describe('activity suggestion helpers', () => {
     const types = new Set(activities.map((activity) => activity.activity_type));
     expect(types.has('cultural')).toBe(true);
     expect(types.has('dining')).toBe(true);
-    expect(types.has('shopping') || types.has('souvenirs')).toBe(true);
-    expect(types.has('nightlife')).toBe(true);
     expect(activities.map((activity) => activity.activity_name)).toContain('Try: Currywurst');
+    expect(activities.map((activity) => activity.activity_name)).not.toContain('Book one hands-on Berlin, Germany food or craft session');
+    expect(activities.map((activity) => activity.activity_name)).not.toContain('Berlin, Germany notable restaurant reservation');
+    expect(activities.map((activity) => activity.activity_name)).not.toContain('Berlin, Germany live music room or concert hall');
     expect(activities.map((activity) => activity.activity_name)).not.toContain('Try local cuisine');
     expect(activities.map((activity) => activity.activity_name)).not.toContain('Visit local museums');
   });
 
-  it('uses destination-aware experience suggestions instead of generic filler', () => {
+  it('does not invent food activities when provider and local data are empty', () => {
     const activities = completeActivitySuggestions(
       [],
-      'Florence, Italy',
-      ['historical_sites', 'street_food'],
+      'Somewhere New',
+      ['fine_dining', 'street_food', 'wine_tasting'],
     );
 
-    const names = activities.map((activity) => activity.activity_name);
-    expect(names).toContain('Experience: Fresh pasta cooking class');
-    expect(names).toContain('Experience: Historic piazza and church walk');
-    expect(names).toContain('Florence, Italy castle, ruins, fort, or heritage site');
-    expect(names).not.toContain('Try local cuisine');
-    expect(names).not.toContain('Tour monuments and historic landmarks');
+    expect(activities).toEqual([]);
   });
 
-  it('uses decisive fallback wording instead of placeholder planning categories', () => {
+  it('does not use placeholder fallback wording for unknown destinations', () => {
     const activities = completeActivitySuggestions(
       [],
       'Somewhere New',
@@ -84,8 +84,6 @@ describe('activity suggestion helpers', () => {
     expect(copy).not.toContain('maker, cooking, or craft workshop');
     expect(copy).not.toContain('park, garden, viewpoint, or waterfront');
     expect(copy).not.toContain('look for');
-    expect(activities.map((activity) => activity.activity_name)).toContain(
-      'Use Somewhere New market tasting as the food anchor',
-    );
+    expect(activities).toEqual([]);
   });
 });

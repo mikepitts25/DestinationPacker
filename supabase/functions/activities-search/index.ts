@@ -218,91 +218,9 @@ function activityMatchesInterests(activityType: string, interests: string[]) {
 }
 
 function fallbackActivities(destination: string, interests: string[] = []): ActivitySuggestion[] {
-  const activities: ActivitySuggestion[] = [
-    {
-      activity_name: `Build a ${destination} history walk around the old center`,
-      activity_type: "cultural",
-      description:
-        "Use the oldest streets, civic buildings, preserved corners, and landmark blocks as a focused cultural route.",
-      source: "suggested",
-      external_id: null,
-      photo_url: null,
-      rating: null,
-      review_count: null,
-      rating_source: null,
-      distance_from_center_km: null,
-    },
-    {
-      activity_name: `${destination} museum or specialist collection`,
-      activity_type: "cultural",
-      description:
-        "Prioritize museums with a strong local story, not just the largest building on the map.",
-      source: "suggested",
-      external_id: null,
-      photo_url: null,
-      rating: null,
-      review_count: null,
-      rating_source: null,
-      distance_from_center_km: null,
-    },
-    {
-      activity_name: `Book one hands-on ${destination} food or craft session`,
-      activity_type: "dining",
-      description:
-        "Choose a class tied to regional food, drink, textiles, ceramics, chocolate, spices, or another craft with local roots.",
-      source: "suggested",
-      external_id: null,
-      photo_url: null,
-      rating: null,
-      review_count: null,
-      rating_source: null,
-      distance_from_center_km: null,
-    },
-    {
-      activity_name: `Browse ${destination} markets for useful local finds`,
-      activity_type: "shopping",
-      description:
-        "Use markets and small shops for practical gifts, food souvenirs, crafts, and products that are actually regional.",
-      source: "suggested",
-      external_id: null,
-      photo_url: null,
-      rating: null,
-      review_count: null,
-      rating_source: null,
-      distance_from_center_km: null,
-    },
-    {
-      activity_name: `Add a low-friction ${destination} viewpoint or waterfront reset`,
-      activity_type: "outdoor",
-      description:
-        "Keep one outdoor reset between heavier museum, meal, and sightseeing plans so the day has breathing room.",
-      source: "suggested",
-      external_id: null,
-      photo_url: null,
-      rating: null,
-      review_count: null,
-      rating_source: null,
-      distance_from_center_km: null,
-    },
-    {
-      activity_name: `Pick one ${destination} evening venue with a real local angle`,
-      activity_type: "nightlife",
-      description:
-        "Choose a specific evening plan that reflects the destination instead of a generic night out.",
-      source: "suggested",
-      external_id: null,
-      photo_url: null,
-      rating: null,
-      review_count: null,
-      rating_source: null,
-      distance_from_center_km: null,
-    },
-  ];
-
-  const filtered = activities.filter((activity) =>
-    activityMatchesInterests(activity.activity_type, interests)
-  );
-  return filtered.length > 0 ? filtered : activities.slice(0, 5);
+  void destination;
+  void interests;
+  return [];
 }
 
 function suggestedActivityTypes(interests: string[]) {
@@ -398,7 +316,7 @@ async function generateAiActivities(
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) return [];
 
-  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash-lite";
+  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.1-flash-lite";
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const res = await fetch(url, {

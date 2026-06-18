@@ -43,7 +43,7 @@ describe('tripAdvisorGuideForDestination', () => {
     const guide = tripAdvisorGuideForDestination('Made Up City');
 
     expect(guide.foods).toHaveLength(1);
-    expect(guide.souvenirs[0].title).toBe('Small local specialty from Made Up City');
+    expect(guide.souvenirs[0].title).toBe('Local markets');
     expect(guide.customs.some((item) => item.title === 'Ask before photographing people')).toBe(true);
     expect(guide.practical.some((item) => item.title === 'Check import rules')).toBe(true);
     expect(guide.booking.some((item) => item.title === 'Book must-do experiences early')).toBe(true);

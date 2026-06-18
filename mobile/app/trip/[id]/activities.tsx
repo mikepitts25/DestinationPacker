@@ -3,13 +3,16 @@ import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Button, Text } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
 import { useActivities, useFetchActivities, useToggleActivity } from '@/hooks/useActivities';
+import { useTrip } from '@/hooks/useTrips';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { buildSuggestedItinerary, type SuggestedItineraryDay } from '@/lib/activities/itinerary';
 import {
   activityPlanningInsight,
   groupActivitiesForPlanning,
   type ActivityPlanningGroup,
 } from '@/lib/activities/plan';
 import { formatActivityRating } from '@/lib/activities/rating';
+import { isUserFacingActivitySuggestion } from '@/lib/activities/suggestions';
 import type { Activity, ActivityType } from '@/types';
 
 const ACTIVITY_EMOJI: Record<ActivityType, string> = {
@@ -40,6 +43,7 @@ const GROUP_META: Record<ActivityPlanningGroup['title'], { accent: string; light
 
 export default function ActivitiesScreen() {
   const { id: tripId } = useLocalSearchParams<{ id: string }>();
+  const { data: trip } = useTrip(tripId);
   const { data: activities, isLoading } = useActivities(tripId);
   const { mutate: fetchActivities, isPending: isFetching } = useFetchActivities(tripId);
   const { mutate: toggleActivity, isPending: isToggling } = useToggleActivity(tripId);
@@ -51,7 +55,10 @@ export default function ActivitiesScreen() {
     }
   }, [activities, fetchActivities, tripId]);
 
-  const activityList = activities ?? [];
+  const activityList = (activities ?? []).filter(isUserFacingActivitySuggestion);
+  const itinerary = buildSuggestedItinerary(activityList, {
+    days: Math.min(trip?.duration_days ?? 1, 3),
+  });
   const groups = groupActivitiesForPlanning(activityList);
   const selectedCount = activityList.filter((activity) => activity.selected).length;
   const activeTitle = groups.some((group) => group.title === selectedGroupTitle)
@@ -115,6 +122,10 @@ export default function ActivitiesScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
+          {itinerary.length > 0 && (
+            <ItineraryCard itinerary={itinerary} />
+          )}
+
           <View style={styles.grid}>
             {gridRows.map((row) => (
               <View key={row.map((group) => group.title).join('-')} style={styles.gridRow}>
@@ -184,6 +195,33 @@ export default function ActivitiesScreen() {
           <View style={{ height: 92 }} />
         </ScrollView>
       )}
+    </View>
+  );
+}
+
+function ItineraryCard({ itinerary }: { itinerary: SuggestedItineraryDay[] }) {
+  return (
+    <View style={styles.itineraryCard}>
+      <View style={styles.itineraryHeader}>
+        <View>
+          <Text style={styles.itineraryTitle}>Suggested itinerary</Text>
+          <Text style={styles.itinerarySubtitle}>Built from named places in this trip.</Text>
+        </View>
+        <Text style={styles.itineraryCount}>{itinerary.length} day{itinerary.length === 1 ? '' : 's'}</Text>
+      </View>
+      {itinerary.map((day) => (
+        <View key={day.day} style={styles.itineraryDay}>
+          <Text style={styles.itineraryDayLabel}>Day {day.day}</Text>
+          <View style={styles.itineraryItems}>
+            {day.items.map((item) => (
+              <View key={`${day.day}:${item.activity.id}`} style={styles.itineraryItem}>
+                <Text style={styles.itineraryTime}>{item.timeLabel}</Text>
+                <Text style={styles.itineraryName} numberOfLines={1}>{item.activity.activity_name}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -306,6 +344,38 @@ const styles = StyleSheet.create({
   selectedPillText: { ...Typography.caption, color: Colors.primaryDark, fontWeight: '800' },
   refreshButton: { alignSelf: 'flex-start', borderRadius: 8, borderColor: Colors.border },
   scrollContent: { paddingBottom: Spacing.xl },
+  itineraryCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    overflow: 'hidden',
+  },
+  itineraryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: '#edf7f7',
+  },
+  itineraryTitle: { ...Typography.h3, color: Colors.onSurface },
+  itinerarySubtitle: { ...Typography.caption, color: Colors.muted, marginTop: 2 },
+  itineraryCount: { ...Typography.caption, color: Colors.primaryDark, fontWeight: '800' },
+  itineraryDay: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  itineraryDayLabel: { width: 44, ...Typography.caption, color: Colors.primaryDark, fontWeight: '800' },
+  itineraryItems: { flex: 1, gap: 6 },
+  itineraryItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  itineraryTime: { width: 70, ...Typography.caption, color: Colors.muted, fontWeight: '700' },
+  itineraryName: { flex: 1, ...Typography.caption, color: Colors.onSurface, fontWeight: '700' },
   grid: { paddingHorizontal: Spacing.md, gap: 12 },
   gridRow: { flexDirection: 'row', gap: 12 },
   tile: {
