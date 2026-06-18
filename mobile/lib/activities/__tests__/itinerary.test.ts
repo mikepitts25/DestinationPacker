@@ -64,4 +64,38 @@ describe('activity itinerary builder', () => {
       'Augustiner-Keller',
     ]);
   });
+
+  it('excludes broad destination labels and cinemas from itinerary candidates', () => {
+    const itinerary = buildSuggestedItinerary([
+      activity({
+        id: 'region',
+        activity_name: 'Bavaria',
+        activity_type: 'cultural',
+        description: 'Bavaria is a region.',
+      }),
+      activity({
+        id: 'cinema',
+        activity_name: 'CINEMA Filmtheater',
+        activity_type: 'cultural',
+        description: 'CINEMA Filmtheater is a cinema.',
+      }),
+      activity({
+        id: 'museum',
+        activity_name: 'Deutsches Museum',
+        activity_type: 'cultural',
+        description: 'A science and technology museum on Museum Island.',
+      }),
+      activity({
+        id: 'market',
+        activity_name: 'Viktualienmarkt',
+        activity_type: 'shopping',
+        description: 'A central food market in Munich.',
+      }),
+    ], { days: 2 });
+
+    expect(itinerary.flatMap((day) => day.items.map((item) => item.activity.activity_name))).toEqual([
+      'Deutsches Museum',
+      'Viktualienmarkt',
+    ]);
+  });
 });

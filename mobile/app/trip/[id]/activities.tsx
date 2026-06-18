@@ -216,7 +216,12 @@ function ItineraryCard({ itinerary }: { itinerary: SuggestedItineraryDay[] }) {
             {day.items.map((item) => (
               <View key={`${day.day}:${item.activity.id}`} style={styles.itineraryItem}>
                 <Text style={styles.itineraryTime}>{item.timeLabel}</Text>
-                <Text style={styles.itineraryName} numberOfLines={1}>{item.activity.activity_name}</Text>
+                <View style={styles.itineraryItemText}>
+                  <Text style={styles.itineraryName} numberOfLines={1}>{item.activity.activity_name}</Text>
+                  <Text style={styles.itineraryDescription} numberOfLines={1}>
+                    {itineraryActivityDescription(item.activity)}
+                  </Text>
+                </View>
               </View>
             ))}
           </View>
@@ -224,6 +229,12 @@ function ItineraryCard({ itinerary }: { itinerary: SuggestedItineraryDay[] }) {
       ))}
     </View>
   );
+}
+
+function itineraryActivityDescription(activity: Activity) {
+  if (activity.description?.trim()) return activity.description.trim();
+  if (activity.rating !== null) return `${activity.rating.toFixed(1)} rated place`;
+  return activity.activity_type.replace('_', ' ');
 }
 
 function ActivityGroupIcon({
@@ -373,9 +384,11 @@ const styles = StyleSheet.create({
   },
   itineraryDayLabel: { width: 44, ...Typography.caption, color: Colors.primaryDark, fontWeight: '800' },
   itineraryItems: { flex: 1, gap: 6 },
-  itineraryItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  itineraryItem: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   itineraryTime: { width: 70, ...Typography.caption, color: Colors.muted, fontWeight: '700' },
+  itineraryItemText: { flex: 1, minWidth: 0 },
   itineraryName: { flex: 1, ...Typography.caption, color: Colors.onSurface, fontWeight: '700' },
+  itineraryDescription: { ...Typography.caption, color: Colors.muted, marginTop: 1 },
   grid: { paddingHorizontal: Spacing.md, gap: 12 },
   gridRow: { flexDirection: 'row', gap: 12 },
   tile: {

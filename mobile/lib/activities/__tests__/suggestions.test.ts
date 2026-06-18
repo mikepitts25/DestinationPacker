@@ -1,6 +1,7 @@
 import {
   completeActivitySuggestions,
   dedupeActivitySuggestions,
+  isUserFacingActivitySuggestion,
 } from '../suggestions';
 import type { ActivitySuggestion } from '../localSuggestions';
 
@@ -85,5 +86,23 @@ describe('activity suggestion helpers', () => {
     expect(copy).not.toContain('park, garden, viewpoint, or waterfront');
     expect(copy).not.toContain('look for');
     expect(activities).toEqual([]);
+  });
+
+  it('filters cinemas and broad destination labels from user-facing suggestions', () => {
+    expect(isUserFacingActivitySuggestion({
+      source: 'openstreetmap',
+      activity_name: 'CINEMA Filmtheater',
+      activity_type: 'cultural',
+      description: 'CINEMA Filmtheater is a cinema.',
+      destination: 'Munich, Bavaria, Germany',
+    })).toBe(false);
+
+    expect(isUserFacingActivitySuggestion({
+      source: 'openstreetmap',
+      activity_name: 'Bavaria',
+      activity_type: 'cultural',
+      description: 'Bavaria is a tourist attraction.',
+      destination: 'Munich, Bavaria, Germany',
+    })).toBe(false);
   });
 });

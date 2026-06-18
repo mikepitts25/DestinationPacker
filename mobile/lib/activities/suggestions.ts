@@ -42,8 +42,35 @@ export function dedupeActivitySuggestions(activities: ActivitySuggestion[]): Act
   });
 }
 
-export function isUserFacingActivitySuggestion(activity: Pick<ActivitySuggestion, 'source'>): boolean {
-  return activity.source !== 'suggested';
+type UserFacingActivityInput = Pick<ActivitySuggestion, 'source'> & Partial<
+  Pick<ActivitySuggestion, 'activity_name' | 'activity_type' | 'description'>
+> & {
+  destination?: string | null;
+};
+
+const BLOCKED_PLACE_PATTERNS = [
+  /\bcinema\b/i,
+  /\bcinemaxx\b/i,
+  /\bfilmtheater\b/i,
+  /\bfilmpalast\b/i,
+  /\bmovie theater\b/i,
+];
+
+export function isUserFacingActivitySuggestion(activity: UserFacingActivityInput): boolean {
+  if (activity.source === 'suggested') return false;
+
+  const name = activity.activity_name?.trim() ?? '';
+  const description = activity.description?.trim() ?? '';
+  const searchable = `${name} ${description}`;
+  if (BLOCKED_PLACE_PATTERNS.some((pattern) => pattern.test(searchable))) return false;
+
+  const destinationParts = (activity.destination ?? '')
+    .split(',')
+    .map((part) => normalizedName(part))
+    .filter((part) => part.length > 2);
+  if (destinationParts.includes(normalizedName(name))) return false;
+
+  return true;
 }
 
 function seedSuggestionsForInterests(destination: string, interests: ActivityInterest[]) {
@@ -118,7 +145,7 @@ export function completeActivitySuggestions(
 ): ActivitySuggestion[] {
   const selectedTypes = activityTypesForInterests(interests);
   const provider = providerActivities.filter((activity) => (
-    isUserFacingActivitySuggestion(activity)
+    isUserFacingActivitySuggestion({ ...activity, destination })
     && matchesSelectedTypes(activity.activity_type, selectedTypes)
   ));
   const seeds = seedSuggestionsForInterests(destination, interests);

@@ -180,7 +180,7 @@ function classifyTags(tags: Record<string, string>): string {
   if (amenity === "place_of_worship" || tags.building === "cathedral") {
     return "cultural";
   }
-  if (["theatre", "cinema"].includes(amenity)) return "cultural";
+  if (amenity === "theatre") return "cultural";
   return "cultural";
 }
 
@@ -505,7 +505,7 @@ async function searchActivities(
     (
       nwr["tourism"~"attraction|museum|gallery|artwork|viewpoint|zoo|theme_park|aquarium"](around:5000,${lat},${lon});
       nwr["leisure"~"park|garden|beach_resort|nature_reserve|sports_centre|water_park|stadium"](around:5000,${lat},${lon});
-      nwr["amenity"~"theatre|cinema|marketplace|place_of_worship|restaurant|cafe|food_court|bar|pub|nightclub"](around:4000,${lat},${lon});
+      nwr["amenity"~"theatre|marketplace|place_of_worship|restaurant|cafe|food_court|bar|pub|nightclub"](around:4000,${lat},${lon});
       nwr["historic"~"castle|monument|memorial|ruins|archaeological_site|fort"](around:5000,${lat},${lon});
       nwr["building"="cathedral"](around:5000,${lat},${lon});
       nwr["natural"~"beach|cave_entrance|hot_spring|peak"](around:7000,${lat},${lon});
