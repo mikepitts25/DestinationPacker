@@ -14,9 +14,54 @@ type LocalSuggestion = {
   activity_type: ActivityType;
   description: string;
   source?: string;
+  external_id?: string;
 };
 
 const LOCAL_SUGGESTIONS: Record<string, LocalSuggestion[]> = {
+  lisbon: [
+    {
+      name: 'Time Out Market Lisboa',
+      activity_type: 'dining',
+      description: 'Food market inside Mercado da Ribeira with many Lisbon food counters, bars, and shops; good after a flight because it stays flexible.',
+      external_id: 'local:lisbon:time-out-market-lisboa',
+    },
+    {
+      name: 'Garrafeira Alfaia',
+      activity_type: 'dining',
+      description: 'Portuguese wine bar and shop for wine, cheese, and small plates; fits a wine-focused evening without a generic restaurant search.',
+      external_id: 'local:lisbon:garrafeira-alfaia',
+    },
+    {
+      name: 'Dois Corvos Marvila Taproom',
+      activity_type: 'dining',
+      description: 'Lisbon craft beer taproom from Dois Corvos; useful for travelers who asked for beer and want a named local stop.',
+      external_id: 'local:lisbon:dois-corvos-marvila-taproom',
+    },
+    {
+      name: 'Praia de Carcavelos',
+      activity_type: 'beach',
+      description: 'Popular Lisbon-coast beach reached by train from Cais do Sodre; pack swimwear, sunscreen, sandals, and a light towel.',
+      external_id: 'local:lisbon:praia-de-carcavelos',
+    },
+    {
+      name: 'LX Market at LX Factory',
+      activity_type: 'shopping',
+      description: 'Market at LX Factory for browsing local vendors, snacks, and small gifts; check the Sunday schedule and bring a reusable bag.',
+      external_id: 'local:lisbon:lx-market-lx-factory',
+    },
+    {
+      name: 'Park and National Palace of Pena',
+      activity_type: 'outdoor',
+      description: 'Sintra park and palace with steep walking routes and viewpoints; book timed entry and pack walking shoes and water.',
+      external_id: 'local:lisbon:park-national-palace-pena',
+    },
+    {
+      name: 'Mercado de Campo de Ourique',
+      activity_type: 'dining',
+      description: 'Neighborhood market and food hall with prepared food, wine, cocktails, and traditional market stalls.',
+      external_id: 'local:lisbon:mercado-de-campo-de-ourique',
+    },
+  ],
   berlin: [
     {
       name: 'Try: Berliner Pfannkuchen',
@@ -441,13 +486,26 @@ const EXPERIENCE_SUGGESTIONS: Record<string, LocalSuggestion[]> = {
   ],
 };
 
+const COUNTRY_EXPERIENCE_KEYWORDS = new Set([
+  'italy',
+  'thailand',
+  'france',
+  'japan',
+  'spain',
+  'greece',
+  'portugal',
+  'mexico',
+  'morocco',
+  'peru',
+]);
+
 function suggestionToActivity(suggestion: LocalSuggestion): ActivitySuggestion {
   return {
     activity_name: suggestion.name,
     activity_type: suggestion.activity_type,
     description: suggestion.description,
     source: suggestion.source ?? 'local_guide',
-    external_id: null,
+    external_id: suggestion.external_id ?? null,
     photo_url: null,
   };
 }
@@ -460,14 +518,18 @@ export function localActivitySuggestionsForDestination(destination: string): Act
   const normalizedDestination = normalizeDestination(destination);
   const suggestions: ActivitySuggestion[] = [];
   const seen = new Set<string>();
+  const hasSpecificLocalMatch = Object.keys(LOCAL_SUGGESTIONS).some((keyword) => (
+    normalizedDestination.includes(keyword) && !COUNTRY_EXPERIENCE_KEYWORDS.has(keyword)
+  ));
 
   const sources = [
-    ...Object.entries(LOCAL_SUGGESTIONS),
-    ...Object.entries(EXPERIENCE_SUGGESTIONS),
+    ...Object.entries(LOCAL_SUGGESTIONS).map(([keyword, values]) => ({ keyword, values, kind: 'local' as const })),
+    ...Object.entries(EXPERIENCE_SUGGESTIONS).map(([keyword, values]) => ({ keyword, values, kind: 'experience' as const })),
   ];
 
-  for (const [keyword, keywordSuggestions] of sources) {
+  for (const { keyword, values: keywordSuggestions, kind } of sources) {
     if (!normalizedDestination.includes(keyword)) continue;
+    if (kind === 'experience' && hasSpecificLocalMatch && COUNTRY_EXPERIENCE_KEYWORDS.has(keyword)) continue;
 
     for (const suggestion of keywordSuggestions) {
       const key = suggestion.name.toLowerCase();

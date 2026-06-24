@@ -31,6 +31,23 @@ describe('local activity suggestions', () => {
     expect(belgiumNames).toContain('Experience: Belgian chocolate workshop');
   });
 
+  it('suggests named Lisbon places for food, drink, beaches, hiking, and markets', () => {
+    const suggestions = localActivitySuggestionsForDestination('Lisbon, Portugal');
+    const names = suggestions.map((suggestion) => suggestion.activity_name);
+
+    expect(names).toEqual(expect.arrayContaining([
+      'Time Out Market Lisboa',
+      'Garrafeira Alfaia',
+      'Dois Corvos Marvila Taproom',
+      'Praia de Carcavelos',
+      'LX Market at LX Factory',
+      'Park and National Palace of Pena',
+      'Mercado de Campo de Ourique',
+    ]));
+    expect(names).not.toContain('Experience: Port or vinho verde tasting');
+    expect(names).not.toContain('Experience: Azulejo and old town architecture walk');
+  });
+
 
   it('appends local suggestions without duplicating existing activities', () => {
     const activities = appendLocalActivitySuggestions([

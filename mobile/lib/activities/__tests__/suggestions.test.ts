@@ -88,6 +88,27 @@ describe('activity suggestion helpers', () => {
     expect(activities).toEqual([]);
   });
 
+  it('uses named Lisbon picks instead of generic food and market prompts', () => {
+    const activities = completeActivitySuggestions(
+      [],
+      'Lisbon, Portugal',
+      ['beach_pool', 'wine_tasting', 'fine_dining', 'craft_beer', 'hiking', 'local_markets'],
+    );
+    const names = activities.map((activity) => activity.activity_name);
+
+    expect(names).toEqual(expect.arrayContaining([
+      'Time Out Market Lisboa',
+      'Garrafeira Alfaia',
+      'Dois Corvos Marvila Taproom',
+      'Praia de Carcavelos',
+      'LX Market at LX Factory',
+      'Park and National Palace of Pena',
+    ]));
+    expect(names.some((name) => name.toLowerCase().includes('book a'))).toBe(false);
+    expect(names.some((name) => name.toLowerCase().includes('look for'))).toBe(false);
+    expect(names.some((name) => name.toLowerCase().includes('experience: port'))).toBe(false);
+  });
+
   it('filters cinemas and broad destination labels from user-facing suggestions', () => {
     expect(isUserFacingActivitySuggestion({
       source: 'openstreetmap',

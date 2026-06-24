@@ -693,6 +693,7 @@ function dedupeStoredActivities(activities: Activity[]): Activity[] {
 async function fetchActivitiesForDestination(
   destination: TripDestination,
   interests: ActivityInterest[],
+  trip?: Trip,
 ): Promise<ActivitySuggestion[]> {
   let activities = fallbackActivitiesForDestination(destination.destination, interests);
 
@@ -704,6 +705,14 @@ async function fetchActivitiesForDestination(
           lat: destination.latitude,
           lon: destination.longitude,
           interests,
+          trip: trip ? {
+            start_date: trip.start_date,
+            end_date: trip.end_date,
+            duration_days: trip.duration_days,
+            travel_method: trip.travel_method,
+            accommodation: trip.accommodation,
+            travelers: trip.travelers,
+          } : undefined,
         },
       });
 
@@ -737,7 +746,7 @@ export const activitiesApi = {
     const destinations = tripDestinations(trip, { dedupe: true });
     const destinationActivities = await Promise.all(destinations.map(async (destination) => ({
       destination: destination.destination,
-      activities: await fetchActivitiesForDestination(destination, trip.activity_interests),
+      activities: await fetchActivitiesForDestination(destination, trip.activity_interests, trip),
     })));
 
     const existing = await activitiesApi.list(tripId);

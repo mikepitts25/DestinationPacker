@@ -43,6 +43,15 @@ type ActivitySuggestion = {
   distance_from_center_km: number | null;
 };
 
+type TripContext = {
+  start_date?: string;
+  end_date?: string;
+  duration_days?: number;
+  travel_method?: string;
+  accommodation?: string;
+  travelers?: number;
+};
+
 type GooglePlace = {
   id?: unknown;
   displayName?: { text?: unknown };
@@ -108,9 +117,22 @@ const genericNamePatterns = [
   /^local markets and shopping$/i,
   /^browse local markets/i,
   /^book a notable restaurant$/i,
+  /^book one .+(food|craft|market|restaurant|session|class|tour)/i,
+  /^.+ notable restaurant reservation$/i,
+  /^.+ regional wine tasting$/i,
+  /^.+ market tasting as the food anchor$/i,
+  /^.+ street-food, bakery, or market-stall crawl$/i,
   /^adventure activity$/i,
   /^family-friendly attraction$/i,
   /^spa, wellness, or fitness session$/i,
+];
+
+const blockedPlacePatterns = [
+  /\bcinema\b/i,
+  /\bcinemaxx\b/i,
+  /\bfilmtheater\b/i,
+  /\bfilmpalast\b/i,
+  /\bmovie theater\b/i,
 ];
 
 async function readCache(cacheKey: string) {
@@ -136,6 +158,20 @@ async function writeCache(
   });
 }
 
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit,
+  timeoutMs: number,
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function extractJson(text: string): string {
   const trimmed = text.trim();
   if (!trimmed.includes("```")) return trimmed;
@@ -151,6 +187,28 @@ function normalizedName(name: string) {
 function isGenericName(name: string) {
   const normalized = normalizedName(name);
   return genericNamePatterns.some((pattern) => pattern.test(normalized));
+}
+
+function destinationParts(destination: string) {
+  return destination
+    .split(",")
+    .map((part) => normalizedName(part))
+    .filter((part) => part.length > 2);
+}
+
+function isDestinationLabel(name: string, destination: string) {
+  return destinationParts(destination).includes(normalizedName(name));
+}
+
+function isBlockedPlace(name: string, description = "") {
+  const searchable = `${name} ${description}`;
+  return blockedPlacePatterns.some((pattern) => pattern.test(searchable));
+}
+
+function isUserFacingActivityName(name: string, destination: string, description = "") {
+  return !isGenericName(name) &&
+    !isDestinationLabel(name, destination) &&
+    !isBlockedPlace(name, description);
 }
 
 function classifyTags(tags: Record<string, string>): string {
@@ -210,6 +268,22 @@ function normalizeInterests(value: unknown): string[] {
     .filter((interest) => interest in interestActivityTypes);
 }
 
+function normalizeTripContext(value: unknown): TripContext {
+  if (!value || typeof value !== "object") return {};
+  const record = value as Record<string, unknown>;
+  const durationDays = Number(record.duration_days);
+  const travelers = Number(record.travelers);
+
+  return {
+    start_date: typeof record.start_date === "string" ? record.start_date : undefined,
+    end_date: typeof record.end_date === "string" ? record.end_date : undefined,
+    duration_days: Number.isFinite(durationDays) ? durationDays : undefined,
+    travel_method: typeof record.travel_method === "string" ? record.travel_method : undefined,
+    accommodation: typeof record.accommodation === "string" ? record.accommodation : undefined,
+    travelers: Number.isFinite(travelers) ? travelers : undefined,
+  };
+}
+
 function activityMatchesInterests(activityType: string, interests: string[]) {
   if (interests.length === 0) return true;
   return interests.some((interest) =>
@@ -217,10 +291,95 @@ function activityMatchesInterests(activityType: string, interests: string[]) {
   );
 }
 
+type LocalGuideSuggestion = {
+  keyword: string;
+  activity_name: string;
+  activity_type: string;
+  description: string;
+  external_id: string;
+};
+
+const localGuideSuggestions: LocalGuideSuggestion[] = [
+  {
+    keyword: "lisbon",
+    activity_name: "Time Out Market Lisboa",
+    activity_type: "dining",
+    description:
+      "Food market inside Mercado da Ribeira with many Lisbon food counters, bars, and shops; good after a flight because it stays flexible.",
+    external_id: "local:lisbon:time-out-market-lisboa",
+  },
+  {
+    keyword: "lisbon",
+    activity_name: "Garrafeira Alfaia",
+    activity_type: "dining",
+    description:
+      "Portuguese wine bar and shop for wine, cheese, and small plates; fits a wine-focused evening without a generic restaurant search.",
+    external_id: "local:lisbon:garrafeira-alfaia",
+  },
+  {
+    keyword: "lisbon",
+    activity_name: "Dois Corvos Marvila Taproom",
+    activity_type: "dining",
+    description:
+      "Lisbon craft beer taproom from Dois Corvos; useful for travelers who asked for beer and want a named local stop.",
+    external_id: "local:lisbon:dois-corvos-marvila-taproom",
+  },
+  {
+    keyword: "lisbon",
+    activity_name: "Praia de Carcavelos",
+    activity_type: "beach",
+    description:
+      "Popular Lisbon-coast beach reached by train from Cais do Sodre; pack swimwear, sunscreen, sandals, and a light towel.",
+    external_id: "local:lisbon:praia-de-carcavelos",
+  },
+  {
+    keyword: "lisbon",
+    activity_name: "LX Market at LX Factory",
+    activity_type: "shopping",
+    description:
+      "Market at LX Factory for browsing local vendors, snacks, and small gifts; check the Sunday schedule and bring a reusable bag.",
+    external_id: "local:lisbon:lx-market-lx-factory",
+  },
+  {
+    keyword: "lisbon",
+    activity_name: "Park and National Palace of Pena",
+    activity_type: "outdoor",
+    description:
+      "Sintra park and palace with steep walking routes and viewpoints; book timed entry and pack walking shoes and water.",
+    external_id: "local:lisbon:park-national-palace-pena",
+  },
+  {
+    keyword: "lisbon",
+    activity_name: "Mercado de Campo de Ourique",
+    activity_type: "dining",
+    description:
+      "Neighborhood market and food hall with prepared food, wine, cocktails, and traditional market stalls.",
+    external_id: "local:lisbon:mercado-de-campo-de-ourique",
+  },
+];
+
+function localGuideActivities(destination: string, interests: string[] = []): ActivitySuggestion[] {
+  const normalizedDestination = normalizedName(destination);
+  return localGuideSuggestions.flatMap((suggestion): ActivitySuggestion[] => {
+    if (!normalizedDestination.includes(suggestion.keyword)) return [];
+    if (!activityMatchesInterests(suggestion.activity_type, interests)) return [];
+    return [{
+      activity_name: suggestion.activity_name,
+      activity_type: suggestion.activity_type,
+      description: suggestion.description,
+      source: "local_guide",
+      external_id: suggestion.external_id,
+      photo_url: null,
+      rating: null,
+      review_count: null,
+      rating_source: null,
+      distance_from_center_km: null,
+    }];
+  });
+}
+
 function fallbackActivities(destination: string, interests: string[] = []): ActivitySuggestion[] {
-  void destination;
-  void interests;
-  return [];
+  return localGuideActivities(destination, interests);
 }
 
 function suggestedActivityTypes(interests: string[]) {
@@ -237,46 +396,89 @@ function buildAiPrompt(
   destination: string,
   interests: string[],
   osmActivities: ActivitySuggestion[],
+  context: TripContext = {},
 ) {
   const interestText = interests.length > 0 ? interests.join(", ") : "general sightseeing";
   const typeText = suggestedActivityTypes(interests).join(", ") || "mixed";
   const nearbyNames = osmActivities.slice(0, 12).map((activity) => ({
     name: activity.activity_name,
     type: activity.activity_type,
+    what_it_is: activity.description,
   }));
+  const contextLines = [
+    context.start_date && context.end_date ? `Dates: ${context.start_date} to ${context.end_date}` : null,
+    Number.isFinite(context.duration_days) ? `Trip length: ${context.duration_days} days` : null,
+    context.travel_method ? `Arrival method: ${context.travel_method}` : null,
+    context.accommodation ? `Accommodation: ${context.accommodation}` : null,
+    Number.isFinite(context.travelers) ? `Travelers: ${context.travelers}` : null,
+  ].filter(Boolean).join("\n");
 
   return `You are a sharp local travel editor for DestinationPacker. Return strict JSON only.
 
 Create 14 to 18 destination-specific trip suggestions for ${destination}.
 
-Traveler interests: ${interestText}
+${contextLines ? `${contextLines}\n` : ""}Traveler interests: ${interestText}
 Useful activity type mix: ${typeText}
 Nearby map results you may include if they are worth visiting: ${JSON.stringify(nearbyNames)}
 
-The list must feel concrete and useful, not generic. Include a balanced mix of:
-- Named museums, castles, old buildings, viewpoints, ruins, historic districts, landmarks, or cultural places.
-- Hands-on local experiences such as cooking classes, chocolate workshops, wine tastings, tea ceremonies, craft studios, market food tours, or similar experiences when they fit ${destination}.
-- Named restaurants, cafes, bars, breweries, or tasting rooms for food and drink when they fit the request. Do not invent ratings, review counts, awards, addresses, hours, or booking claims.
-- Local foods, drinks, markets, independent shops, and destination-specific things to buy. For buyable items, prefix activity_name with "Buy: ".
-- Outdoor, family, nightlife, wellness, beach, or adventure suggestions only when they fit the destination or requested interests.
+The list must feel concrete and useful, not generic. Every item must be a real named place, a named venue, a named market, a named beach/trail/park, or a destination-specific buyable item.
+
+Include a balanced mix when it fits the interests:
+- Named food markets, restaurants, wine bars, breweries, taprooms, tastings, or food halls.
+- Named beaches, parks, hikes, viewpoints, palaces, ruins, historic districts, landmarks, or cultural places.
+- Named markets, independent shopping areas, and destination-specific things to buy. For buyable items, prefix activity_name with "Buy: ".
+- Hands-on experiences only when the activity_name names the provider, venue, class, market, or place where it happens.
 
 Rules:
-- Prefer actual named places or named destination-specific experiences.
-- Do not return generic names like "Visit local museums", "Try local cuisine", "Local markets and shopping", or "Explore city center".
-- Keep old sightseeing attractions in the mix, but make them specific.
-- Descriptions should explain why this belongs in ${destination}, not how travel works in general.
-- Do not invent street addresses, phone numbers, prices, hours, or booking claims.
-- If you cannot name a credible food or drink venue, omit that venue instead of returning generic food advice.
+- Do not return generic names like "Visit local museums", "Try local cuisine", "Book one hands-on food session", "Local markets and shopping", or "Explore city center".
+- Do not suggest the destination, country, or region itself as an activity.
+- Do not include cinemas, movie theaters, or ordinary shopping malls.
+- Descriptions must say what the place is, why it fits the traveler interests, and one practical packing or planning cue.
+- Do not invent ratings, review counts, awards, street addresses, phone numbers, prices, hours, or booking claims.
+- If you cannot explain what a place is, omit it.
+- If you cannot name a credible food, wine, beer, beach, hiking, or market venue, omit that category instead of returning generic advice.
 
 Return a JSON array only. Each object must be:
 {
   "activity_name": "specific name",
   "activity_type": "outdoor|water|cultural|nightlife|dining|sports|beach|snow|business|wellness|shopping|souvenirs|family|adventure",
-  "description": "one useful sentence"
+  "what_it_is": "short factual phrase explaining the place or item",
+  "why_it_fits": "short reason tied to the traveler interests",
+  "logistics": "short planning note, or empty string if unknown",
+  "packing_hooks": ["one or two relevant packing cues"],
+  "description": "one compact sentence combining what it is, why it fits, and the strongest planning or packing cue"
 }`;
 }
 
-function normalizeAiActivities(value: unknown): ActivitySuggestion[] {
+function stringList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  }
+  if (typeof value === "string" && value.trim()) return [value.trim()];
+  return [];
+}
+
+function compactAiDescription(record: Record<string, unknown>) {
+  const description = typeof record.description === "string" ? record.description.trim() : "";
+  if (description) return description;
+
+  const parts = [
+    typeof record.what_it_is === "string" ? record.what_it_is.trim() : "",
+    typeof record.why_it_fits === "string" ? record.why_it_fits.trim() : "",
+    typeof record.logistics === "string" ? record.logistics.trim() : "",
+  ].filter(Boolean);
+  const packingHooks = stringList(record.packing_hooks);
+  if (packingHooks.length > 0) {
+    parts.push(`Pack: ${packingHooks.slice(0, 2).join(", ")}.`);
+  }
+
+  return parts.join(" ");
+}
+
+function normalizeAiActivities(
+  destination: string,
+  value: unknown,
+): ActivitySuggestion[] {
   if (!Array.isArray(value)) return [];
 
   const seen = new Set<string>();
@@ -285,8 +487,8 @@ function normalizeAiActivities(value: unknown): ActivitySuggestion[] {
     const record = item as Record<string, unknown>;
     const rawName = typeof record.activity_name === "string" ? record.activity_name.trim() : "";
     const rawType = typeof record.activity_type === "string" ? record.activity_type.trim() : "cultural";
-    const rawDescription = typeof record.description === "string" ? record.description.trim() : "";
-    if (!rawName || isGenericName(rawName)) return [];
+    const rawDescription = compactAiDescription(record);
+    if (!rawName || !isUserFacingActivityName(rawName, destination, rawDescription)) return [];
     if (!allowedActivityTypes.has(rawType)) return [];
 
     const key = normalizedName(rawName);
@@ -296,7 +498,7 @@ function normalizeAiActivities(value: unknown): ActivitySuggestion[] {
     return [{
       activity_name: rawName.slice(0, 140),
       activity_type: rawType,
-      description: rawDescription ? rawDescription.slice(0, 280) : null,
+      description: rawDescription ? rawDescription.slice(0, 360) : null,
       source: "ai_curated",
       external_id: null,
       photo_url: null,
@@ -312,6 +514,7 @@ async function generateAiActivities(
   destination: string,
   interests: string[],
   osmActivities: ActivitySuggestion[],
+  context: TripContext = {},
 ): Promise<ActivitySuggestion[]> {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) return [];
@@ -319,26 +522,26 @@ async function generateAiActivities(
   const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.1-flash-lite";
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: buildAiPrompt(destination, interests, osmActivities) }] }],
-      generationConfig: {
-        temperature: 0.65,
-        responseMimeType: "application/json",
-      },
-    }),
-  });
-
-  if (!res.ok) return [];
-
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (typeof text !== "string") return [];
-
   try {
-    return normalizeAiActivities(JSON.parse(extractJson(text)));
+    const res = await fetchWithTimeout(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: buildAiPrompt(destination, interests, osmActivities, context) }] }],
+        generationConfig: {
+          temperature: 0.65,
+          responseMimeType: "application/json",
+        },
+      }),
+    }, 12000);
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (typeof text !== "string") return [];
+
+    return normalizeAiActivities(destination, JSON.parse(extractJson(text)));
   } catch {
     return [];
   }
@@ -369,7 +572,7 @@ async function searchGooglePlacesByType(
     : `highly rated restaurants in ${destination}`;
 
   try {
-    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    const res = await fetchWithTimeout("https://places.googleapis.com/v1/places:searchText", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -391,7 +594,7 @@ async function searchGooglePlacesByType(
           },
         },
       }),
-    });
+    }, 8000);
 
     if (!res.ok) return [];
 
@@ -462,12 +665,17 @@ function mergeActivities(
 
   for (const activity of [
     ...reviewedActivities,
+    ...localGuideActivities(destination, interests),
     ...aiActivities,
     ...osmActivities,
     ...fallbackActivities(destination, interests),
   ]) {
     const key = normalizedName(activity.activity_name);
-    if (!key || seen.has(key) || isGenericName(activity.activity_name)) continue;
+    if (
+      !key ||
+      seen.has(key) ||
+      !isUserFacingActivityName(activity.activity_name, destination, activity.description ?? "")
+    ) continue;
     if (!activityMatchesInterests(activity.activity_type, interests)) continue;
     seen.add(key);
     merged.push(activity);
@@ -492,11 +700,17 @@ async function searchActivities(
   lat: number,
   lon: number,
   interests: string[],
+  context: TripContext = {},
 ) {
   const interestKey = interests.length > 0 ? [...interests].sort().join(",") : "all";
-  const cacheKey = `activities:v4:${destination.toLowerCase()}:${lat.toFixed(2)}:${
+  const contextKey = [
+    context.duration_days ?? "",
+    context.travel_method ?? "",
+    context.accommodation ?? "",
+  ].join(":");
+  const cacheKey = `activities:v5:${destination.toLowerCase()}:${lat.toFixed(2)}:${
     lon.toFixed(2)
-  }:${interestKey}`;
+  }:${interestKey}:${contextKey}`;
   const cached = await readCache(cacheKey);
   if (cached) return cached;
 
@@ -513,19 +727,28 @@ async function searchActivities(
     out center 40;
   `;
 
-  const res = await fetch(overpassUrl, {
-    method: "POST",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-      "User-Agent": userAgent,
-    },
-    body: new URLSearchParams({ data: query }),
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(overpassUrl, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "User-Agent": userAgent,
+      },
+      body: new URLSearchParams({ data: query }),
+    }, 15000);
+  } catch {
+    const reviewedActivities = await searchReviewedFoodAndDrink(destination, lat, lon, interests);
+    const aiActivities = await generateAiActivities(destination, interests, [], context);
+    const fallback = mergeActivities(destination, interests, reviewedActivities, aiActivities, []);
+    await writeCache(cacheKey, fallback, 7 * 24 * 60 * 60);
+    return fallback;
+  }
 
   if (!res.ok) {
     const reviewedActivities = await searchReviewedFoodAndDrink(destination, lat, lon, interests);
-    const aiActivities = await generateAiActivities(destination, interests, []);
+    const aiActivities = await generateAiActivities(destination, interests, [], context);
     const fallback = mergeActivities(destination, interests, reviewedActivities, aiActivities, []);
     await writeCache(cacheKey, fallback, 7 * 24 * 60 * 60);
     return fallback;
@@ -534,7 +757,7 @@ async function searchActivities(
   const data = await res.json();
   if (typeof data?.remark === "string" && data.remark.includes("timed out")) {
     const reviewedActivities = await searchReviewedFoodAndDrink(destination, lat, lon, interests);
-    const aiActivities = await generateAiActivities(destination, interests, []);
+    const aiActivities = await generateAiActivities(destination, interests, [], context);
     const fallback = mergeActivities(destination, interests, reviewedActivities, aiActivities, []);
     await writeCache(cacheKey, fallback, 7 * 24 * 60 * 60);
     return fallback;
@@ -548,18 +771,20 @@ async function searchActivities(
     const tags = element.tags ?? {};
     const name = tags["name:en"] || tags.name;
     if (!name || seen.has(String(name).toLowerCase())) return [];
-    seen.add(String(name).toLowerCase());
 
     const activityType = classifyTags(tags);
     if (!activityMatchesInterests(activityType, interests)) return [];
 
     const coordinates = elementCoordinates(element);
     const distance = coordinates ? distanceKm(lat, lon, coordinates.lat, coordinates.lon) : null;
+    const description = buildDescription(String(name), tags);
+    if (!isUserFacingActivityName(String(name), destination, description)) return [];
+    seen.add(String(name).toLowerCase());
 
     return [{
       activity_name: String(name),
       activity_type: activityType,
-      description: buildDescription(String(name), tags),
+      description,
       source: "openstreetmap",
       external_id: `osm:${element.type ?? "nwr"}:${element.id}`,
       photo_url: null,
@@ -575,7 +800,7 @@ async function searchActivities(
   }).slice(0, 18);
 
   const reviewedActivities = await searchReviewedFoodAndDrink(destination, lat, lon, interests);
-  const aiActivities = await generateAiActivities(destination, interests, osmActivities);
+  const aiActivities = await generateAiActivities(destination, interests, osmActivities, context);
   const payload = mergeActivities(destination, interests, reviewedActivities, aiActivities, osmActivities);
   await writeCache(cacheKey, payload, 14 * 24 * 60 * 60);
   return payload;
@@ -592,6 +817,7 @@ Deno.serve(async (req) => {
     const lat = Number(body.lat);
     const lon = Number(body.lon);
     const interests = normalizeInterests(body.interests);
+    const context = normalizeTripContext(body.trip);
 
     if (!destination || !Number.isFinite(lat) || !Number.isFinite(lon)) {
       return Response.json(
@@ -600,7 +826,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const activities = await searchActivities(destination, lat, lon, interests);
+    const activities = await searchActivities(destination, lat, lon, interests, context);
     return Response.json({ activities }, { headers: corsHeaders });
   } catch (error) {
     return Response.json({

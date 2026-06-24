@@ -25,20 +25,22 @@ export function buildSuggestedItinerary(
   const days = Math.max(1, Math.min(options.days ?? 1, 5));
   const maxItemsPerDay = options.maxItemsPerDay ?? 2;
   const candidates = activities
-    .filter(isConcreteCandidate)
-    .sort(compareItineraryCandidates);
+    .map((activity, index) => ({ activity, index }))
+    .filter(({ activity }) => isConcreteCandidate(activity))
+    .sort(compareIndexedItineraryCandidates)
+    .map(({ activity }) => activity);
   const used = new Set<string>();
+  const usedTypes = new Set<ActivityType>();
   const itinerary: SuggestedItineraryDay[] = [];
 
   for (let day = 1; day <= days; day += 1) {
     const items: SuggestedItineraryItem[] = [];
 
     for (const slot of SLOT_ORDER) {
-      const candidate = candidates.find((activity) => (
-        !used.has(activity.id) && slot.types.includes(activity.activity_type)
-      ));
+      const candidate = selectCandidateForSlot(candidates, used, usedTypes, slot.types);
       if (!candidate) continue;
       used.add(candidate.id);
+      usedTypes.add(candidate.activity_type);
       items.push({ timeLabel: slot.timeLabel, activity: candidate });
       if (items.length >= maxItemsPerDay) break;
     }
@@ -47,6 +49,21 @@ export function buildSuggestedItinerary(
   }
 
   return itinerary;
+}
+
+function selectCandidateForSlot(
+  candidates: Activity[],
+  used: Set<string>,
+  usedTypes: Set<ActivityType>,
+  slotTypes: ActivityType[],
+) {
+  return candidates.find((activity) => (
+    !used.has(activity.id) &&
+    slotTypes.includes(activity.activity_type) &&
+    !usedTypes.has(activity.activity_type)
+  )) ?? candidates.find((activity) => (
+    !used.has(activity.id) && slotTypes.includes(activity.activity_type)
+  ));
 }
 
 function isConcreteCandidate(activity: Activity) {
@@ -60,10 +77,13 @@ function isConcreteCandidate(activity: Activity) {
   );
 }
 
-function compareItineraryCandidates(a: Activity, b: Activity) {
-  const scoreDiff = itineraryScore(b) - itineraryScore(a);
+function compareIndexedItineraryCandidates(
+  a: { activity: Activity; index: number },
+  b: { activity: Activity; index: number },
+) {
+  const scoreDiff = itineraryScore(b.activity) - itineraryScore(a.activity);
   if (scoreDiff !== 0) return scoreDiff;
-  return a.activity_name.localeCompare(b.activity_name);
+  return a.index - b.index;
 }
 
 function itineraryScore(activity: Activity) {

@@ -1,4 +1,5 @@
 import { buildSuggestedItinerary } from '../itinerary';
+import { localActivitySuggestionsForDestination } from '../localSuggestions';
 import type { Activity } from '@/types';
 
 function activity(overrides: Partial<Activity> & Pick<Activity, 'id' | 'activity_name' | 'activity_type'>): Activity {
@@ -10,12 +11,24 @@ function activity(overrides: Partial<Activity> & Pick<Activity, 'id' | 'activity
     activity_type: overrides.activity_type,
     description: overrides.description ?? `${overrides.activity_name} description`,
     source: overrides.source ?? 'openstreetmap',
-    external_id: overrides.external_id ?? `osm:${overrides.id}`,
-    photo_url: overrides.photo_url ?? null,
-    rating: overrides.rating ?? null,
-    review_count: overrides.review_count ?? null,
-    rating_source: overrides.rating_source ?? null,
-    distance_from_center_km: overrides.distance_from_center_km ?? 1,
+    external_id: Object.prototype.hasOwnProperty.call(overrides, 'external_id')
+      ? overrides.external_id ?? null
+      : `osm:${overrides.id}`,
+    photo_url: Object.prototype.hasOwnProperty.call(overrides, 'photo_url')
+      ? overrides.photo_url ?? null
+      : null,
+    rating: Object.prototype.hasOwnProperty.call(overrides, 'rating')
+      ? overrides.rating ?? null
+      : null,
+    review_count: Object.prototype.hasOwnProperty.call(overrides, 'review_count')
+      ? overrides.review_count ?? null
+      : null,
+    rating_source: Object.prototype.hasOwnProperty.call(overrides, 'rating_source')
+      ? overrides.rating_source ?? null
+      : null,
+    distance_from_center_km: Object.prototype.hasOwnProperty.call(overrides, 'distance_from_center_km')
+      ? overrides.distance_from_center_km ?? null
+      : null,
     selected: overrides.selected ?? false,
   };
 }
@@ -97,5 +110,29 @@ describe('activity itinerary builder', () => {
       'Deutsches Museum',
       'Viktualienmarkt',
     ]);
+  });
+
+  it('builds Lisbon itinerary rows from named local-guide candidates', () => {
+    const lisbonActivities = localActivitySuggestionsForDestination('Lisbon, Portugal')
+      .map((suggestion, index) => activity({
+        id: `lisbon-${index}`,
+        destination: 'Lisbon, Portugal',
+        activity_name: suggestion.activity_name,
+        activity_type: suggestion.activity_type,
+        description: suggestion.description,
+        source: suggestion.source,
+        external_id: suggestion.external_id,
+      }));
+    const itinerary = buildSuggestedItinerary(lisbonActivities, { days: 3 });
+    const names = itinerary.flatMap((day) => day.items.map((item) => item.activity.activity_name));
+
+    expect(names).toEqual(expect.arrayContaining([
+      'Time Out Market Lisboa',
+      'Praia de Carcavelos',
+      'Park and National Palace of Pena',
+      'LX Market at LX Factory',
+    ]));
+    expect(names.some((name) => name.toLowerCase().includes('book one'))).toBe(false);
+    expect(names.some((name) => name.toLowerCase().includes('experience:'))).toBe(false);
   });
 });
