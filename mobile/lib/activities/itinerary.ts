@@ -73,8 +73,13 @@ function isConcreteCandidate(activity: Activity) {
     || activity.rating !== null
     || activity.review_count !== null
     || activity.photo_url
-    || activity.distance_from_center_km !== null,
+    || activity.distance_from_center_km !== null
+    || isNamedAiCandidate(activity),
   );
+}
+
+function isNamedAiCandidate(activity: Activity) {
+  return activity.source === 'ai_curated' && Boolean(activity.description?.trim());
 }
 
 function compareIndexedItineraryCandidates(

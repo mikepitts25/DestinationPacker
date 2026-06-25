@@ -48,6 +48,7 @@ export default function ActivitiesScreen() {
   const { mutate: fetchActivities, isPending: isFetching } = useFetchActivities(tripId);
   const { mutate: toggleActivity, isPending: isToggling } = useToggleActivity(tripId);
   const [selectedGroupTitle, setSelectedGroupTitle] = useState<ActivityPlanningGroup['title'] | null>(null);
+  const [attemptedQualityRefresh, setAttemptedQualityRefresh] = useState(false);
 
   useEffect(() => {
     if (tripId && (!activities || activities.length === 0)) {
@@ -59,6 +60,22 @@ export default function ActivitiesScreen() {
   const itinerary = buildSuggestedItinerary(activityList, {
     days: Math.min(trip?.duration_days ?? 1, 3),
   });
+
+  useEffect(() => {
+    if (!tripId || isLoading || isFetching || attemptedQualityRefresh) return;
+    if (activities && activities.length > 0 && itinerary.length === 0) {
+      setAttemptedQualityRefresh(true);
+      fetchActivities();
+    }
+  }, [
+    activities,
+    attemptedQualityRefresh,
+    fetchActivities,
+    isFetching,
+    isLoading,
+    itinerary.length,
+    tripId,
+  ]);
   const groups = groupActivitiesForPlanning(activityList);
   const selectedCount = activityList.filter((activity) => activity.selected).length;
   const activeTitle = groups.some((group) => group.title === selectedGroupTitle)

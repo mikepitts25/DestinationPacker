@@ -50,8 +50,8 @@ describe('activity suggestion helpers', () => {
 
     const types = new Set(activities.map((activity) => activity.activity_type));
     expect(types.has('cultural')).toBe(true);
-    expect(types.has('dining')).toBe(true);
-    expect(activities.map((activity) => activity.activity_name)).toContain('Try: Currywurst');
+    expect(types.has('dining')).toBe(false);
+    expect(activities.map((activity) => activity.activity_name)).not.toContain('Try: Currywurst');
     expect(activities.map((activity) => activity.activity_name)).not.toContain('Book one hands-on Berlin, Germany food or craft session');
     expect(activities.map((activity) => activity.activity_name)).not.toContain('Berlin, Germany notable restaurant reservation');
     expect(activities.map((activity) => activity.activity_name)).not.toContain('Berlin, Germany live music room or concert hall');
@@ -107,6 +107,19 @@ describe('activity suggestion helpers', () => {
     expect(names.some((name) => name.toLowerCase().includes('book a'))).toBe(false);
     expect(names.some((name) => name.toLowerCase().includes('look for'))).toBe(false);
     expect(names.some((name) => name.toLowerCase().includes('experience: port'))).toBe(false);
+  });
+
+  it('does not surface generic country-level experience or try prompts as activity ideas', () => {
+    const activities = completeActivitySuggestions(
+      [],
+      'Barcelona, Catalonia, Spain',
+      ['fine_dining', 'street_food', 'wine_tasting', 'craft_beer', 'local_markets', 'architecture'],
+    );
+    const names = activities.map((activity) => activity.activity_name);
+
+    expect(names).not.toContain('Experience: Tapas or market food tour');
+    expect(names).not.toContain('Experience: Moorish, medieval, or old town architecture walk');
+    expect(names).not.toContain('Try: Iberian jamon');
   });
 
   it('filters cinemas and broad destination labels from user-facing suggestions', () => {

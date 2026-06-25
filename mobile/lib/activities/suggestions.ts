@@ -56,12 +56,15 @@ const BLOCKED_PLACE_PATTERNS = [
   /\bmovie theater\b/i,
 ];
 
+const WEAK_ACTIVITY_PREFIXES = /^(experience|try):\s*/i;
+
 export function isUserFacingActivitySuggestion(activity: UserFacingActivityInput): boolean {
   if (activity.source === 'suggested') return false;
 
   const name = activity.activity_name?.trim() ?? '';
   const description = activity.description?.trim() ?? '';
   const searchable = `${name} ${description}`;
+  if (WEAK_ACTIVITY_PREFIXES.test(name)) return false;
   if (BLOCKED_PLACE_PATTERNS.some((pattern) => pattern.test(searchable))) return false;
 
   const destinationParts = (activity.destination ?? '')
@@ -76,6 +79,7 @@ export function isUserFacingActivitySuggestion(activity: UserFacingActivityInput
 function seedSuggestionsForInterests(destination: string, interests: ActivityInterest[]) {
   const selectedTypes = activityTypesForInterests(interests);
   const local = localActivitySuggestionsForDestination(destination)
+    .filter((activity) => isUserFacingActivitySuggestion({ ...activity, destination }))
     .filter((activity) => matchesSelectedTypes(activity.activity_type, selectedTypes));
 
   return local;

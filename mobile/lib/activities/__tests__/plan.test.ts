@@ -207,6 +207,14 @@ describe('activity planning helpers', () => {
 
   it('writes concrete planning insights from available activity context', () => {
     expect(activityPlanningInsight(activity({
+      id: 'ai-market',
+      activity_name: 'Mercat de Sant Josep de la Boqueria',
+      activity_type: 'shopping',
+      source: 'ai_curated',
+      description: 'Named Barcelona market for food browsing; bring a reusable bag.',
+    }))).toBe('Named Barcelona market for food browsing; bring a reusable bag.');
+
+    expect(activityPlanningInsight(activity({
       id: 'rated',
       activity_name: 'Museum Island',
       activity_type: 'cultural',

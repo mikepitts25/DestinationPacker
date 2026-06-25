@@ -135,4 +135,42 @@ describe('activity itinerary builder', () => {
     expect(names.some((name) => name.toLowerCase().includes('book one'))).toBe(false);
     expect(names.some((name) => name.toLowerCase().includes('experience:'))).toBe(false);
   });
+
+  it('builds an itinerary from named AI-curated city suggestions without provider ids', () => {
+    const itinerary = buildSuggestedItinerary([
+      activity({
+        id: 'boqueria',
+        destination: 'Barcelona, Catalonia, Spain',
+        activity_name: 'Mercat de Sant Josep de la Boqueria',
+        activity_type: 'shopping',
+        source: 'ai_curated',
+        external_id: null,
+        description: 'Named Barcelona market for food browsing and snacks.',
+      }),
+      activity({
+        id: 'casa-batllo',
+        destination: 'Barcelona, Catalonia, Spain',
+        activity_name: 'Casa Batllo',
+        activity_type: 'cultural',
+        source: 'ai_curated',
+        external_id: null,
+        description: 'Gaudi landmark that fits an architecture-focused Barcelona day.',
+      }),
+      activity({
+        id: 'garage',
+        destination: 'Barcelona, Catalonia, Spain',
+        activity_name: 'Garage Beer Co.',
+        activity_type: 'nightlife',
+        source: 'ai_curated',
+        external_id: null,
+        description: 'Named Barcelona craft beer stop for an evening plan.',
+      }),
+    ], { days: 2 });
+
+    expect(itinerary.flatMap((day) => day.items.map((item) => item.activity.activity_name))).toEqual([
+      'Casa Batllo',
+      'Mercat de Sant Josep de la Boqueria',
+      'Garage Beer Co.',
+    ]);
+  });
 });

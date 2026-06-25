@@ -690,6 +690,12 @@ function dedupeStoredActivities(activities: Activity[]): Activity[] {
   });
 }
 
+function shouldReplaceOnActivityRefresh(activity: Activity, destinations: Set<string>) {
+  return !activity.selected
+    && activity.source !== 'user_added'
+    && destinations.has(activity.destination ?? '');
+}
+
 async function fetchActivitiesForDestination(
   destination: TripDestination,
   interests: ActivityInterest[],
@@ -750,7 +756,23 @@ export const activitiesApi = {
     })));
 
     const existing = await activitiesApi.list(tripId);
-    const existingKeys = new Set(existing.map(activityStorageKey));
+    const refreshedDestinations = new Set(destinations.map((destination) => destination.destination));
+    const replaceIds = existing
+      .filter((activity) => shouldReplaceOnActivityRefresh(activity, refreshedDestinations))
+      .map((activity) => activity.id);
+
+    if (replaceIds.length > 0) {
+      const { error } = await supabase
+        .from('trip_activities')
+        .delete()
+        .eq('trip_id', tripId)
+        .in('id', replaceIds);
+
+      if (error) throw new ApiError(error.message, 400);
+    }
+
+    const preservedExisting = existing.filter((activity) => !replaceIds.includes(activity.id));
+    const existingKeys = new Set(preservedExisting.map(activityStorageKey));
     const nextKeys = new Set<string>();
 
     const rows = destinationActivities.flatMap(({ destination, activities }) => (

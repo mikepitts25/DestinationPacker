@@ -75,8 +75,8 @@ export function activityPlanningInsight(activity: Activity): string {
     return 'This is already in your trip, so the plan keeps it visible and tied to packing.';
   }
 
-  if (activity.source === 'local_guide' || activity.source === 'ai_curated') {
-    return 'Local-guide context makes this feel more specific than a broad search result.';
+  if ((activity.source === 'local_guide' || activity.source === 'ai_curated') && activity.description?.trim()) {
+    return activity.description.trim();
   }
 
   if (activity.rating !== null && activity.rating >= 4.5) {
