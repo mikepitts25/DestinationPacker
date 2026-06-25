@@ -1,4 +1,4 @@
-import { formatActivityRating } from '../rating';
+import { formatActivityDistance, formatActivityRating } from '../rating';
 
 describe('activity rating formatting', () => {
   it('formats rating with review count and source', () => {
@@ -23,5 +23,24 @@ describe('activity rating formatting', () => {
       review_count: 24,
       rating_source: 'Google',
     })).toBeNull();
+  });
+
+  it('returns null for zero or negative ratings', () => {
+    expect(formatActivityRating({
+      rating: 0,
+      review_count: 12,
+      rating_source: 'Google',
+    })).toBeNull();
+    expect(formatActivityRating({
+      rating: -1,
+      review_count: 12,
+      rating_source: 'Google',
+    })).toBeNull();
+  });
+
+  it('formats positive distance and hides zero distance', () => {
+    expect(formatActivityDistance({ distance_from_center_km: 1.25 })).toBe('1.3 km');
+    expect(formatActivityDistance({ distance_from_center_km: 0 })).toBeNull();
+    expect(formatActivityDistance({ distance_from_center_km: null })).toBeNull();
   });
 });

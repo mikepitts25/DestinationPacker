@@ -1,4 +1,5 @@
 import { isUserFacingActivitySuggestion } from './suggestions';
+import { hasPositiveActivityDistance, hasPositiveActivityRating } from './rating';
 import type { Activity, ActivityType } from '@/types';
 
 export type SuggestedItineraryItem = {
@@ -70,16 +71,20 @@ function isConcreteCandidate(activity: Activity) {
   if (!isUserFacingActivitySuggestion(activity)) return false;
   return Boolean(
     activity.external_id
-    || activity.rating !== null
-    || activity.review_count !== null
+    || hasPositiveActivityRating(activity)
+    || hasPositiveReviewCount(activity)
     || activity.photo_url
-    || activity.distance_from_center_km !== null
+    || hasPositiveActivityDistance(activity)
     || isNamedAiCandidate(activity),
   );
 }
 
 function isNamedAiCandidate(activity: Activity) {
   return activity.source === 'ai_curated' && Boolean(activity.description?.trim());
+}
+
+function hasPositiveReviewCount(activity: Activity): activity is Activity & { review_count: number } {
+  return typeof activity.review_count === 'number' && Number.isFinite(activity.review_count) && activity.review_count > 0;
 }
 
 function compareIndexedItineraryCandidates(
@@ -97,8 +102,8 @@ function itineraryScore(activity: Activity) {
   if (activity.source === 'google_places') score += 30;
   if (activity.source === 'openstreetmap') score += 20;
   if (activity.source === 'ai_curated') score += 15;
-  if (activity.rating !== null) score += activity.rating * 5;
-  if (activity.review_count !== null) score += Math.min(activity.review_count / 1000, 15);
-  if (activity.distance_from_center_km !== null) score += Math.max(0, 8 - activity.distance_from_center_km);
+  if (hasPositiveActivityRating(activity)) score += activity.rating * 5;
+  if (hasPositiveReviewCount(activity)) score += Math.min(activity.review_count / 1000, 15);
+  if (hasPositiveActivityDistance(activity)) score += Math.max(0, 8 - activity.distance_from_center_km);
   return score;
 }

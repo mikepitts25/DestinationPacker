@@ -11,7 +11,7 @@ import {
   groupActivitiesForPlanning,
   type ActivityPlanningGroup,
 } from '@/lib/activities/plan';
-import { formatActivityRating } from '@/lib/activities/rating';
+import { formatActivityDistance, formatActivityRating, hasPositiveActivityRating } from '@/lib/activities/rating';
 import { isUserFacingActivitySuggestion } from '@/lib/activities/suggestions';
 import type { Activity, ActivityType } from '@/types';
 
@@ -250,7 +250,7 @@ function ItineraryCard({ itinerary }: { itinerary: SuggestedItineraryDay[] }) {
 
 function itineraryActivityDescription(activity: Activity) {
   if (activity.description?.trim()) return activity.description.trim();
-  if (activity.rating !== null) return `${activity.rating.toFixed(1)} rated place`;
+  if (hasPositiveActivityRating(activity)) return `${activity.rating.toFixed(1)} rated place`;
   return activity.activity_type.replace('_', ' ');
 }
 
@@ -318,9 +318,7 @@ function ActivityRow({
 }
 
 function distanceText(activity: Activity) {
-  return activity.distance_from_center_km !== null
-    ? `${activity.distance_from_center_km.toFixed(1)} km`
-    : null;
+  return formatActivityDistance(activity);
 }
 
 function sourceLabel(source: string) {

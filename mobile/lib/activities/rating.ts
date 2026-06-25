@@ -4,8 +4,22 @@ export type ActivityRatingFields = {
   rating_source?: string | null;
 };
 
+export type ActivityDistanceFields = {
+  distance_from_center_km?: number | null;
+};
+
+export function hasPositiveActivityRating(activity: ActivityRatingFields): activity is ActivityRatingFields & { rating: number } {
+  return typeof activity.rating === 'number' && Number.isFinite(activity.rating) && activity.rating > 0;
+}
+
+export function hasPositiveActivityDistance(activity: ActivityDistanceFields): activity is ActivityDistanceFields & { distance_from_center_km: number } {
+  return typeof activity.distance_from_center_km === 'number' &&
+    Number.isFinite(activity.distance_from_center_km) &&
+    activity.distance_from_center_km > 0;
+}
+
 export function formatActivityRating(activity: ActivityRatingFields): string | null {
-  if (typeof activity.rating !== 'number' || !Number.isFinite(activity.rating)) {
+  if (!hasPositiveActivityRating(activity)) {
     return null;
   }
 
@@ -19,4 +33,9 @@ export function formatActivityRating(activity: ActivityRatingFields): string | n
   if (reviewCount) return `${ratingText} · ${reviewCount} reviews`;
   if (source) return `${ratingText} · ${source}`;
   return ratingText;
+}
+
+export function formatActivityDistance(activity: ActivityDistanceFields): string | null {
+  if (!hasPositiveActivityDistance(activity)) return null;
+  return `${activity.distance_from_center_km.toFixed(1)} km`;
 }

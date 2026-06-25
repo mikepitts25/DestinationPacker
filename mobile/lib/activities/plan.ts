@@ -1,3 +1,4 @@
+import { hasPositiveActivityDistance, hasPositiveActivityRating } from './rating';
 import type { Activity, ActivityType } from '@/types';
 
 export type ActivityPlanTimeLabel = 'Morning' | 'Afternoon' | 'Evening' | 'Flexible';
@@ -79,7 +80,7 @@ export function activityPlanningInsight(activity: Activity): string {
     return activity.description.trim();
   }
 
-  if (activity.rating !== null && activity.rating >= 4.5) {
+  if (hasPositiveActivityRating(activity) && activity.rating >= 4.5) {
     const reviews = activity.review_count !== null && activity.review_count > 0
       ? ` from ${formatCompactNumber(activity.review_count)} reviews`
       : '';
@@ -90,7 +91,7 @@ export function activityPlanningInsight(activity: Activity): string {
     return 'Bring-home pick that can change what you leave space for in the bag.';
   }
 
-  if (activity.distance_from_center_km !== null && activity.distance_from_center_km <= 2) {
+  if (hasPositiveActivityDistance(activity) && activity.distance_from_center_km <= 2) {
     return `${activity.distance_from_center_km.toFixed(1)} km from the center, so it can slot into the day without heavy transit.`;
   }
 
@@ -195,9 +196,9 @@ function planningScore(activity: Activity) {
   if (activity.source === 'local_guide') score += 30;
   if (activity.source === 'ai_curated') score += 25;
   if (activity.photo_url) score += 10;
-  if (activity.rating !== null) score += activity.rating * 4;
-  if (activity.review_count !== null) score += Math.min(activity.review_count / 1000, 12);
-  if (activity.distance_from_center_km !== null && activity.distance_from_center_km <= 2) score += 8;
+  if (hasPositiveActivityRating(activity)) score += activity.rating * 4;
+  if (activity.review_count !== null && activity.review_count > 0) score += Math.min(activity.review_count / 1000, 12);
+  if (hasPositiveActivityDistance(activity) && activity.distance_from_center_km <= 2) score += 8;
   if (normalizedName(activity.activity_name).startsWith('experience:')) score += 8;
   if (normalizedName(activity.activity_name).startsWith('try:')) score += 8;
   if (normalizedName(activity.activity_name).startsWith('buy:')) score += 8;
@@ -220,7 +221,7 @@ function practicalNoteForActivity(activity: Activity, group: ActivityPlanningGro
   if (group === 'Bring Home') return 'Leave bag space and check food, liquid, plant, or customs limits before buying.';
   if (group === 'Outdoor / Weather Dependent') return 'Keep it flexible until the forecast and conditions are clear.';
   if (group === 'Local Food & Drink') return 'Use this as a meal anchor instead of treating food as an afterthought.';
-  if (activity.distance_from_center_km !== null && activity.distance_from_center_km <= 2) {
+  if (hasPositiveActivityDistance(activity) && activity.distance_from_center_km <= 2) {
     return 'Pair it with another central stop to reduce transit time.';
   }
   return 'Use it to fill open time without derailing the main plan.';
@@ -240,7 +241,12 @@ function hasNamedPlaceSignal(activity: Activity) {
   const name = normalizedName(activity.activity_name);
   if (GENERIC_PLACE_TERMS.some((term) => name.includes(term))) return false;
   if (activity.external_id) return true;
-  if (activity.rating !== null || activity.review_count !== null || activity.photo_url || activity.distance_from_center_km !== null) {
+  if (
+    hasPositiveActivityRating(activity) ||
+    (activity.review_count !== null && activity.review_count > 0) ||
+    activity.photo_url ||
+    hasPositiveActivityDistance(activity)
+  ) {
     return true;
   }
   return false;

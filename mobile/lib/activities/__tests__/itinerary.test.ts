@@ -173,4 +173,29 @@ describe('activity itinerary builder', () => {
       'Garage Beer Co.',
     ]);
   });
+
+  it('does not treat zero rating or zero distance as concrete itinerary signal', () => {
+    const itinerary = buildSuggestedItinerary([
+      activity({
+        id: 'zero-rating',
+        activity_name: 'Zero Rating Place',
+        activity_type: 'cultural',
+        external_id: null,
+        rating: 0,
+        review_count: 0,
+        distance_from_center_km: null,
+      }),
+      activity({
+        id: 'zero-distance',
+        activity_name: 'Zero Distance Place',
+        activity_type: 'shopping',
+        external_id: null,
+        rating: null,
+        review_count: null,
+        distance_from_center_km: 0,
+      }),
+    ], { days: 1 });
+
+    expect(itinerary).toEqual([]);
+  });
 });
