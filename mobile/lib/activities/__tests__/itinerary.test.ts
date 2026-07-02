@@ -112,6 +112,42 @@ describe('activity itinerary builder', () => {
     ]);
   });
 
+  it('builds three-stop day plans when enough named activities exist', () => {
+    const itinerary = buildSuggestedItinerary([
+      activity({
+        id: 'site',
+        activity_name: 'Casa Batllo',
+        activity_type: 'cultural',
+        source: 'ai_curated',
+        external_id: null,
+        description: 'Gaudi landmark for a morning architecture stop.',
+      }),
+      activity({
+        id: 'lunch',
+        activity_name: 'Disfrutar',
+        activity_type: 'dining',
+        source: 'ai_curated',
+        external_id: null,
+        description: 'Named restaurant for a food-focused meal anchor.',
+      }),
+      activity({
+        id: 'beach',
+        activity_name: 'Praia de Carcavelos',
+        activity_type: 'beach',
+        source: 'ai_curated',
+        external_id: null,
+        description: 'Named beach for an afternoon outdoor block.',
+      }),
+    ], { days: 1 });
+
+    expect(itinerary).toHaveLength(1);
+    expect(itinerary[0].items.map((item) => item.activity.activity_name)).toEqual([
+      'Casa Batllo',
+      'Disfrutar',
+      'Praia de Carcavelos',
+    ]);
+  });
+
   it('builds Lisbon itinerary rows from named local-guide candidates', () => {
     const lisbonActivities = localActivitySuggestionsForDestination('Lisbon, Portugal')
       .map((suggestion, index) => activity({

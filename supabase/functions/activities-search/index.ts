@@ -109,6 +109,8 @@ const allowedActivityTypes = new Set([
   "adventure",
 ]);
 
+const coreTripActivityTypes = new Set(["cultural", "dining"]);
+
 const genericNamePatterns = [
   /^explore .+ city center$/i,
   /^visit local museums$/i,
@@ -286,6 +288,7 @@ function normalizeTripContext(value: unknown): TripContext {
 
 function activityMatchesInterests(activityType: string, interests: string[]) {
   if (interests.length === 0) return true;
+  if (coreTripActivityTypes.has(activityType)) return true;
   return interests.some((interest) =>
     interestActivityTypes[interest]?.includes(activityType)
   );
@@ -415,7 +418,7 @@ function buildAiPrompt(
 
   return `You are a sharp local travel editor for DestinationPacker. Return strict JSON only.
 
-Create 14 to 18 destination-specific trip suggestions for ${destination}.
+Create 16 to 18 destination-specific trip suggestions for ${destination}.
 
 ${contextLines ? `${contextLines}\n` : ""}Traveler interests: ${interestText}
 Useful activity type mix: ${typeText}
@@ -428,6 +431,12 @@ Include a balanced mix when it fits the interests:
 - Named beaches, parks, hikes, viewpoints, palaces, ruins, historic districts, landmarks, or cultural places.
 - Named markets, independent shopping areas, and destination-specific things to buy. For buyable items, prefix activity_name with "Buy: ".
 - Hands-on experiences only when the activity_name names the provider, venue, class, market, or place where it happens.
+
+Coverage requirements:
+- Include at least 4 named sights or places to see, such as landmarks, viewpoints, historic sites, gardens, parks, beaches, museums, architecture, or neighborhoods.
+- Include at least 4 named places to eat or drink, such as restaurants, food halls, markets with food counters, cafes, wine bars, breweries, taprooms, or tasting rooms.
+- Include at least 2 lower-friction activities or markets that can fill open time without needing a full-day commitment.
+- If traveler interests omit culture or food, still include named sights and named food/drink places so the itinerary is usable.
 
 Rules:
 - Do not return generic names like "Visit local museums", "Try local cuisine", "Book one hands-on food session", "Local markets and shopping", or "Explore city center".
@@ -708,7 +717,7 @@ async function searchActivities(
     context.travel_method ?? "",
     context.accommodation ?? "",
   ].join(":");
-  const cacheKey = `activities:v5:${destination.toLowerCase()}:${lat.toFixed(2)}:${
+  const cacheKey = `activities:v6:${destination.toLowerCase()}:${lat.toFixed(2)}:${
     lon.toFixed(2)
   }:${interestKey}:${contextKey}`;
   const cached = await readCache(cacheKey);

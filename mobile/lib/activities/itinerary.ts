@@ -24,7 +24,7 @@ export function buildSuggestedItinerary(
   options: { days?: number; maxItemsPerDay?: number } = {},
 ): SuggestedItineraryDay[] {
   const days = Math.max(1, Math.min(options.days ?? 1, 5));
-  const maxItemsPerDay = options.maxItemsPerDay ?? 2;
+  const maxItemsPerDay = options.maxItemsPerDay ?? 3;
   const candidates = activities
     .map((activity, index) => ({ activity, index }))
     .filter(({ activity }) => isConcreteCandidate(activity))

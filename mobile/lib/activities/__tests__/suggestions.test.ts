@@ -69,6 +69,25 @@ describe('activity suggestion helpers', () => {
     expect(activities).toEqual([]);
   });
 
+  it('keeps named sights and dining anchors even when interests are narrow', () => {
+    const activities = completeActivitySuggestions(
+      [
+        suggestion('Casa Batllo', 'cultural'),
+        suggestion('Disfrutar', 'dining'),
+        suggestion('Praia de Carcavelos', 'beach'),
+      ],
+      'Barcelona, Catalonia, Spain',
+      ['beach_pool'],
+    );
+    const names = activities.map((activity) => activity.activity_name);
+
+    expect(names).toEqual(expect.arrayContaining([
+      'Casa Batllo',
+      'Disfrutar',
+      'Praia de Carcavelos',
+    ]));
+  });
+
   it('does not use placeholder fallback wording for unknown destinations', () => {
     const activities = completeActivitySuggestions(
       [],

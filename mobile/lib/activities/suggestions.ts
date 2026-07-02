@@ -27,8 +27,12 @@ function normalizedName(name: string) {
   return name.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+const CORE_TRIP_ACTIVITY_TYPES = new Set<ActivityType>(['cultural', 'dining']);
+
 function matchesSelectedTypes(activityType: ActivityType, selectedTypes: ActivityType[]) {
-  return selectedTypes.length === 0 || selectedTypes.includes(activityType);
+  return selectedTypes.length === 0 ||
+    selectedTypes.includes(activityType) ||
+    CORE_TRIP_ACTIVITY_TYPES.has(activityType);
 }
 
 export function dedupeActivitySuggestions(activities: ActivitySuggestion[]): ActivitySuggestion[] {
