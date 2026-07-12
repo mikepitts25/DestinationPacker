@@ -5,13 +5,20 @@
       "en-US": {
         "title": "DestinationPacker",
         "subtitle": "Smart travel packing lists",
-        "description": "DestinationPacker helps travelers plan trips, create destination-aware packing lists, check weather context, and organize activity ideas before departure.",
+        "description": "DestinationPacker helps travelers plan trips, create destination-aware packing lists, check weather context, and organize activity ideas before departure.\n\nBuild a trip in minutes: add your destination and dates, pick your travel style and who is coming, and get a packing list tailored to your trip's weather, activities, and travelers. Check items off as you pack, adjust quantities, add your own items, and share the finished list with travel partners.\n\nFEATURES\n- Destination-aware packing lists generated for your exact trip\n- Weather forecasts with packing adjustments for rain, heat, and cold\n- Per-traveler quantities for families and groups, including kids and pets\n- Local activity ideas with packing items linked to what you plan to do\n- Trip readiness dashboard showing packing progress at a glance\n- Shareable checklists for group trips\n- Destination briefings with foods to try, customs, and practical notes",
         "keywords": [
-          "travel",
-          "packing",
-          "trip planner",
+          "trip",
+          "planner",
           "checklist",
-          "vacation"
+          "vacation",
+          "holiday",
+          "suitcase",
+          "luggage",
+          "itinerary",
+          "weather",
+          "organizer",
+          "todo",
+          "journey"
         ],
         "supportUrl": "https://colibricodellc.com",
         "privacyPolicyUrl": "https://colibricodellc.com/privacy-policy"

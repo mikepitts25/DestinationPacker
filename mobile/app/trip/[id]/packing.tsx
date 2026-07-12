@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Modal, Alert, KeyboardAvoidingView, Platform, Share } from 'react-native';
 import { Text, ActivityIndicator, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,6 +27,7 @@ import {
   templateItemsToAdd,
   type PackingTemplate,
 } from '@/lib/packing/templates';
+import { isPackCompletionMoment, maybeRequestReview } from '@/lib/review/reviewPrompt';
 import { formatTripRoute } from '@/lib/trips/tripDisplay';
 import type { PackingItem, PackingList, TravelerType } from '@/types';
 
@@ -155,6 +156,23 @@ export default function PackingScreen() {
       setTemplateName(`${formatTripRoute(trip)} packing`);
     }
   }, [templateName, trip]);
+
+  // Ask for a store rating when the list transitions to fully packed this
+  // session — not when a list that was already complete is merely opened.
+  const prevPacking = useRef<{ packed: number; total: number } | null>(null);
+  const latestPacked = packingList?.packed_items ?? 0;
+  const latestTotal = packingList?.total_items ?? 0;
+  useEffect(() => {
+    const prev = prevPacking.current;
+    prevPacking.current = { packed: latestPacked, total: latestTotal };
+    if (!prev || prev.total === 0) return;
+    if (
+      isPackCompletionMoment(latestPacked, latestTotal) &&
+      !isPackCompletionMoment(prev.packed, prev.total)
+    ) {
+      maybeRequestReview();
+    }
+  }, [latestPacked, latestTotal]);
 
   if (isLoading) {
     return <View style={styles.centered}><ActivityIndicator size="large" color={Colors.primary} /></View>;

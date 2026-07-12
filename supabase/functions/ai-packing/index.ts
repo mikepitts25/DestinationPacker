@@ -1,8 +1,29 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+const admin = createClient(supabaseUrl, serviceRoleKey);
+
+const DEFAULT_DAILY_LIMIT = 10;
+
+function dailyLimit(): number {
+  const parsed = Number(Deno.env.get("AI_PACKING_DAILY_LIMIT"));
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_DAILY_LIMIT;
+}
+
+function errorResponse(status: number, error: string) {
+  return Response.json(
+    { items: [], provider: "none", error },
+    { status, headers: corsHeaders },
+  );
+}
 
 type AiItem = {
   category: string;
@@ -194,6 +215,27 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const jwt = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
+    if (!jwt) {
+      return errorResponse(401, "Missing authorization token");
+    }
+
+    const { data: userData, error: userError } = await admin.auth.getUser(jwt);
+    if (userError || !userData.user) {
+      return errorResponse(401, "Invalid authorization token");
+    }
+
+    const { data: withinLimit, error: usageError } = await admin.rpc(
+      "increment_ai_usage",
+      { p_user_id: userData.user.id, p_daily_limit: dailyLimit() },
+    );
+    if (usageError) {
+      return errorResponse(500, "Could not verify AI usage limit");
+    }
+    if (withinLimit === false) {
+      return errorResponse(429, "Daily AI packing limit reached");
+    }
+
     const input = await req.json();
     const result = await callGemini(buildPrompt(input));
     return Response.json(result, { headers: corsHeaders });
