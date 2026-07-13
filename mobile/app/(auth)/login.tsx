@@ -16,7 +16,22 @@ export default function LoginScreen() {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const { setUser } = useAuthStore();
+
+  const handleGuest = async () => {
+    setError('');
+    setGuestLoading(true);
+    try {
+      const result = await usersApi.loginAnonymously();
+      setUser(result.user);
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong.');
+    } finally {
+      setGuestLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     setError('');
@@ -97,12 +112,26 @@ export default function LoginScreen() {
             mode="contained"
             onPress={handleSubmit}
             loading={loading}
-            disabled={loading}
+            disabled={loading || guestLoading}
             style={styles.button}
             contentStyle={styles.buttonContent}
           >
             {mode === 'login' ? 'Sign In' : 'Create Account'}
           </Button>
+
+          <Button
+            mode="outlined"
+            onPress={handleGuest}
+            loading={guestLoading}
+            disabled={loading || guestLoading}
+            style={styles.guestButton}
+            contentStyle={styles.buttonContent}
+          >
+            Try it without an account
+          </Button>
+          <Text style={styles.guestHint}>
+            Jump straight in — you can create an account later to keep your trips.
+          </Text>
 
           <Button
             mode="text"
@@ -181,6 +210,18 @@ const styles = StyleSheet.create({
   button: {
     marginTop: Spacing.sm,
     borderRadius: 12,
+  },
+  guestButton: {
+    marginTop: Spacing.sm,
+    borderRadius: 12,
+    borderColor: Colors.primary,
+  },
+  guestHint: {
+    ...Typography.caption,
+    color: Colors.muted,
+    textAlign: 'center',
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xs,
   },
   buttonContent: {
     paddingVertical: Spacing.sm,

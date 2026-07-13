@@ -11,9 +11,14 @@ describe('App Store privacy-sensitive native config', () => {
     expect(appConfig.android?.permissions ?? []).not.toContain('ACCESS_FINE_LOCATION');
   });
 
-  it('does not include notification native modules until reminders are implemented', () => {
-    expect(appConfig.plugins).not.toContain('expo-notifications');
-    expect(packageJson.dependencies).not.toHaveProperty('expo-notifications');
+  it('configures expo-notifications for local trip reminders', () => {
+    expect(packageJson.dependencies).toHaveProperty('expo-notifications');
+
+    const notificationsPlugin = appConfig.plugins.find(
+      (plugin: unknown) => Array.isArray(plugin) && plugin[0] === 'expo-notifications',
+    );
+    expect(notificationsPlugin).toBeDefined();
+    expect(notificationsPlugin[1].icon).toBe('./assets/notification-icon.png');
   });
 
   it('declares standard encryption export compliance for App Store Connect', () => {

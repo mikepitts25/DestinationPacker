@@ -76,6 +76,8 @@ export interface User {
   subscription: SubscriptionTier;
   preferences: Record<string, unknown>;
   created_at: string;
+  /** True for guest sessions created via anonymous sign-in. */
+  is_anonymous?: boolean;
 }
 
 export interface Trip {

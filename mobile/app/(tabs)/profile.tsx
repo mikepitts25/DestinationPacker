@@ -33,12 +33,28 @@ function SettingRow({ emoji, label, description, onPress, right }: SettingRowPro
 }
 
 export default function ProfileScreen() {
-  const { user, isPremium, signOut, setUser, setSessionToken } = useAuthStore();
+  const { user, isPremium, isAnonymous, signOut, setUser, setSessionToken } = useAuthStore();
   const [deletingAccount, setDeletingAccount] = useState(false);
   const { data: trips } = useTrips();
 
   const initials = ((user?.display_name ?? user?.email ?? 'U')[0] ?? 'U').toUpperCase();
   const upcomingCount = trips?.filter(t => new Date(t.end_date) >= new Date()).length ?? 0;
+
+  const handleSignOut = () => {
+    if (!isAnonymous) {
+      signOut();
+      return;
+    }
+    Alert.alert(
+      'Save your trips first?',
+      'You are using a guest session. Signing out permanently deletes your trips unless you create an account.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Create Account', onPress: () => router.push('/upgrade-account') },
+        { text: 'Sign Out Anyway', style: 'destructive', onPress: () => signOut() },
+      ],
+    );
+  };
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -90,14 +106,18 @@ export default function ProfileScreen() {
           </LinearGradient>
 
           <View style={styles.nameRow}>
-            <Text style={styles.name}>{user?.display_name ?? 'Traveler'}</Text>
+            <Text style={styles.name}>
+              {user?.display_name ?? (isAnonymous ? 'Guest Traveler' : 'Traveler')}
+            </Text>
             {isPremium && (
               <View style={styles.proBadge}>
                 <Text style={styles.proBadgeText}>PRO</Text>
               </View>
             )}
           </View>
-          <Text style={styles.email}>{user?.email ?? ''}</Text>
+          <Text style={styles.email}>
+            {isAnonymous ? 'Guest session — not backed up yet' : user?.email ?? ''}
+          </Text>
         </LinearGradient>
       </SafeAreaView>
 
@@ -121,6 +141,22 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Items Packed</Text>
             </View>
           </View>
+
+          {isAnonymous && (
+            <TouchableOpacity onPress={() => router.push('/upgrade-account')} style={styles.upgradeCard}>
+              <LinearGradient
+                colors={[Colors.primaryDark, Colors.primary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.upgradeGradient}
+              >
+                <Text style={styles.upgradeTitle}>Create a free account</Text>
+                <Text style={styles.upgradeSub}>
+                  Keep your trips if you switch phones or sign out
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
 
           {!isPremium && (
             <TouchableOpacity onPress={() => router.push('/premium')} style={styles.upgradeCard}>
@@ -162,7 +198,7 @@ export default function ProfileScreen() {
           </View>
 
           {/* Sign out */}
-          <TouchableOpacity style={styles.signOut} onPress={signOut} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.signOut} onPress={handleSignOut} activeOpacity={0.8}>
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
 

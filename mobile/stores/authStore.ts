@@ -8,6 +8,7 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   isPremium: boolean;
+  isAnonymous: boolean;
   setUser: (user: User | null) => void;
   setSessionToken: (token: string | null) => void;
   setLoading: (loading: boolean) => void;
@@ -20,12 +21,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
   isAuthenticated: false,
   isPremium: false,
+  isAnonymous: false,
 
   setUser: (user) => {
     set({
       user,
       isAuthenticated: !!user,
       isPremium: user?.subscription === 'premium',
+      isAnonymous: !!user?.is_anonymous,
     });
   },
 
@@ -35,6 +38,6 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signOut: async () => {
     await supabase.auth.signOut();
-    set({ user: null, sessionToken: null, isAuthenticated: false, isPremium: false });
+    set({ user: null, sessionToken: null, isAuthenticated: false, isPremium: false, isAnonymous: false });
   },
 }));

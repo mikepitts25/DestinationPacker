@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tripsApi } from '@/services/api';
+import { cancelTripReminders, scheduleTripReminders } from '@/lib/notifications/tripReminders';
 import type { TripCreate } from '@/types';
 
 export const TRIPS_KEY = ['trips'] as const;
@@ -23,8 +24,9 @@ export function useCreateTrip() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: TripCreate) => tripsApi.create(data),
-    onSuccess: () => {
+    onSuccess: (trip) => {
       queryClient.invalidateQueries({ queryKey: TRIPS_KEY });
+      scheduleTripReminders(trip).catch(() => {});
     },
   });
 }
@@ -33,9 +35,10 @@ export function useUpdateTrip(tripId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: Partial<TripCreate>) => tripsApi.update(tripId, data),
-    onSuccess: () => {
+    onSuccess: (trip) => {
       queryClient.invalidateQueries({ queryKey: [...TRIPS_KEY, tripId] });
       queryClient.invalidateQueries({ queryKey: TRIPS_KEY });
+      scheduleTripReminders(trip).catch(() => {});
     },
   });
 }
@@ -50,6 +53,7 @@ export function useDeleteTrip() {
         if (!Array.isArray(old)) return old;
         return old.filter((t: any) => t.id !== tripId);
       });
+      cancelTripReminders(tripId).catch(() => {});
     },
   });
 }

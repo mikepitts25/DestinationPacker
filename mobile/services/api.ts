@@ -180,14 +180,14 @@ async function requireUserId(): Promise<string> {
   return data.user.id;
 }
 
-async function getOrCreateProfile(authUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }): Promise<User> {
+async function getOrCreateProfile(authUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown>; is_anonymous?: boolean }): Promise<User> {
   const { data, error } = await supabase
     .from('profiles')
     .select('id,email,display_name,subscription,preferences,created_at')
     .eq('id', authUser.id)
     .single();
 
-  if (!error && data) return mapProfile(data);
+  if (!error && data) return { ...mapProfile(data), is_anonymous: !!authUser.is_anonymous };
 
   const displayName =
     typeof authUser.user_metadata?.display_name === 'string'
@@ -207,7 +207,7 @@ async function getOrCreateProfile(authUser: { id: string; email?: string | null;
     .single();
 
   if (insertError) throw new ApiError(insertError.message, 500);
-  return mapProfile(inserted);
+  return { ...mapProfile(inserted), is_anonymous: !!authUser.is_anonymous };
 }
 
 function normalizePackingRecommendations(items: unknown): PackingRecommendation[] {
@@ -296,6 +296,48 @@ export const usersApi = {
       token_type: 'bearer',
       user,
     } satisfies TokenResponse;
+  },
+
+  loginAnonymously: async () => {
+    const { data: authData, error } = await supabase.auth.signInAnonymously();
+
+    if (error) throw new ApiError(error.message, error.status ?? 400);
+    if (!authData.session || !authData.user) {
+      throw new ApiError('Unable to start a guest session.', 401);
+    }
+
+    const user = await getOrCreateProfile(authData.user);
+    return {
+      access_token: authData.session.access_token,
+      token_type: 'bearer',
+      user,
+    } satisfies TokenResponse;
+  },
+
+  // Converts a guest session into a permanent account by attaching an email
+  // and password to the same auth user, so every trip created as a guest is
+  // kept. When email confirmation is enabled the email stays pending until
+  // the user clicks the link.
+  upgradeAccount: async (data: { email: string; password: string; display_name?: string }) => {
+    const { data: updated, error } = await supabase.auth.updateUser({
+      email: data.email,
+      password: data.password,
+      data: data.display_name ? { display_name: data.display_name } : undefined,
+    });
+
+    if (error) throw new ApiError(error.message, error.status ?? 400);
+    if (!updated.user) throw new ApiError('Unable to update the account.', 400);
+
+    const emailActive = updated.user.email === data.email;
+    const profileUpdates: Record<string, unknown> = {};
+    if (emailActive) profileUpdates.email = data.email;
+    if (data.display_name) profileUpdates.display_name = data.display_name;
+    if (Object.keys(profileUpdates).length > 0) {
+      await supabase.from('profiles').update(profileUpdates).eq('id', updated.user.id);
+    }
+
+    const user = await getOrCreateProfile(updated.user);
+    return { user, pendingEmailConfirmation: !emailActive };
   },
 
   me: async () => {
